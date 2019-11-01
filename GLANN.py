@@ -190,11 +190,10 @@ class GLANN(op_base):
                     one_batch_index = range(i, i+self.batch_size)
                     one_batch_image = load_one_batch_image(self,one_batch_index)
                     print('start %s' % step)
-                    _g = self.sess.run([train_op],feed_dict = {self.input_image:one_batch_image,self.input_index:one_batch_index})
+                    _g,_str = self.sess.run([train_op,summary_op],feed_dict = {self.input_image:one_batch_image,self.input_index:one_batch_index})
                     if(step % 10 == 0):
                         print('update summary')
-                        summary_str = self.sess.run(summary_op)
-                        summary_writer.add_summary(summary_str,step)
+                        summary_writer.add_summary(_str,step)
                     if(step % 100 == 0):
                         print('update model')
                         saver.save(self.sess,os.path.join(self.model_save_path,'model_%s.ckpt' % step))
