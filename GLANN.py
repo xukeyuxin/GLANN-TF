@@ -159,7 +159,7 @@ class GLANN(op_base):
                 summary_writer.add_summary(_summary_str,i)
 
             _g_op,_summary_op = self.sess.run([gen_opt,summary_op], feed_dict = _feed_dict)
-            summary_writer.add_summary(_summary_str)
+            summary_writer.add_summary(_summary_str,i)
 
             
 
