@@ -77,18 +77,18 @@ class GLANN(op_base):
     def perceptual_loss(self, gen, origin):
         alpha1 = 1.
         alpha2 = 1.
-        
+        _imle_deep = tf.shape(gen)[0]
         ### content
         gen_conv3_content = self.vgg(gen,conv3 = True) ## imle_deep, h,w,c
         origin_conv3_content = self.vgg(origin,conv3 = True)  ## 1, h,w,c
-        mix_origin_conv3_content = tf.concat( [ origin_conv3_content for i in range(self.imle_deep) ], axis = 0 ) ## imle_deep, h,w,c
+        mix_origin_conv3_content = tf.concat( [ origin_conv3_content for i in range(_imle_deep) ], axis = 0 ) ## imle_deep, h,w,c
         content_distance = gen_conv3_content - mix_origin_conv3_content
         content_loss = tf.reduce_sum(tf.square(content_distance),axis = [1,2,3]) / 2. ## imle_deep
 
         ### style
         gen_conv3_style = gram(self.vgg(gen,conv3 = True)) ## imle_deep, c, c
         origin_conv3_style = gram(self.vgg(origin,conv3 = True)) ## 1, c, c
-        mix_origin_conv3_style = tf.concat( [ origin_conv3_style for i in range(self.imle_deep) ], axis = 0 ) ## imle_deep, c, c
+        mix_origin_conv3_style = tf.concat( [ origin_conv3_style for i in range(_imle_deep) ], axis = 0 ) ## imle_deep, c, c
         style_distance = gen_conv3_style - mix_origin_conv3_style ## imle_deep, c, c
         
         style_loss = tf.reduce_sum(tf.square(style_distance),axis = [1,2]) ## imle_deep
@@ -120,10 +120,14 @@ class GLANN(op_base):
         imle_choose_img = tf.expand_dims(fake_img[imle_z_index],axis = 0)
 
         #### perceptual_loss
-        perceptual_loss = self.perceptual_loss(fake_img, self.input_image)
-        # imle_gen_index = tf.argmin(perceptual_loss)
+        # perceptual_loss = self.perceptual_loss(fake_img, self.input_image)
+        # imle_gen_loss = tf.reduce_min(perceptual_loss)
+        # imle_gen_mean_loss = tf.reduce_mean(perceptual_loss)
+
+        perceptual_loss = self.perceptual_loss(imle_choose_img, self.input_image)
         imle_gen_loss = tf.reduce_min(perceptual_loss)
         imle_gen_mean_loss = tf.reduce_mean(perceptual_loss)
+        
         self.summaries.append(tf.summary.scalar('g_min_loss',imle_gen_loss)) 
         self.summaries.append(tf.summary.scalar('g_mean_loss',imle_gen_mean_loss)) 
         
