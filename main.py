@@ -19,12 +19,10 @@ parser.add_argument("-vb", "--vocab_dim", type=int, default=100)
 parser.add_argument("-es", "--embedding_size", type=int, default=512)
 
 parser.add_argument("-ic", "--image_channels", type=int, default=3)
-parser.add_argument("-iw", "--image_weight", type=int, default=256)
-parser.add_argument("-ih", "--image_height", type=int, default=256)
+parser.add_argument("-iw", "--image_weight", type=int, default=64)
+parser.add_argument("-ih", "--image_height", type=int, default=64)
 
 parser.add_argument("-ndeep", "--imle_deep", type=int, default=16)
-
-parser.add_argument("-ndeep", "--n_deep", type=int, default=64)
 parser.add_argument("-ndim", "--n_dim", type=int, default=64)
 parser.add_argument("-ed", "--en_dim", type=int, default=512)
 

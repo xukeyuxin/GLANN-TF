@@ -14,7 +14,7 @@ class GLANN(op_base):
         self.sess_arg = tf.Session()
         self.summaries = []
         self.vgg = VGG19()
-        self.train_data_generater = load_image(self,eval = False)
+        self.train_data_generater = load_image()
 
     def get_vars(self,name):
         return tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope = name)
@@ -27,46 +27,44 @@ class GLANN(op_base):
             return []
 
     def encoder(self,input_z,name = 'generate_img',is_training = True):
+        hidden_num = 64
+        output_dim = 64
         with tf.variable_scope(name,reuse = tf.AUTO_REUSE):
 
-            x = tf.reshape(input_z, shape=[-1, 8, 8, 8])
+            x = ly.fc(input_z, hidden_num * 8 * (output_dim // 16) * (output_dim // 16),name = 'gen_fc_0')
+            x = tf.reshape(x, shape=[self.imle_deep, output_dim // 16, output_dim // 16, hidden_num * 8]) ## 4, 4, 8*64
 
-            x = ly.conv2d(x, 16, name='e_conv2d_0') ### 8, 8, 16
-            x = ly.batch_normal(x, name='e_bn_0', is_training=is_training)
+            # x = ly.conv2d(x, 16, name='e_conv2d_0') ### 8, 8, 16
+            # x = ly.batch_normal(x, name='e_bn_0', is_training=is_training)
+            # x = ly.relu(x)
+
+            # x = ly.conv2d(x, 32, name='e_conv2d_1') ### 8, 8, 32
+            # x = ly.batch_normal(x, name='e_bn_1', is_training=is_training)
+            # x = ly.relu(x)
+
+
+            # x = ly.conv2d(x, 64, name='e_conv2d_2') ### 8, 8, 64
+            # x = ly.batch_normal(x, name='e_bn_2', is_training=is_training)
+            # x = ly.relu(x)
+
+            # x = ly.conv2d(x, 128, name='e_conv2d_3') ### 8, 8, 128
+            # x = ly.batch_normal(x, name='e_bn_3', is_training=is_training)
+            # x = ly.relu(x)
+
+            x = ly.deconv2d(x,hidden_num * 4,name = 'g_deconv2d_0') ### 8,8, 128
+            x = ly.batch_normal(x,name = 'g_deconv_bn_0',is_training = is_training)
             x = ly.relu(x)
 
-            x = ly.conv2d(x, 32, name='e_conv2d_1') ### 8, 8, 32
-            x = ly.batch_normal(x, name='e_bn_1', is_training=is_training)
+            x = ly.deconv2d(x,hidden_num * 2,name = 'g_deconv2d_1') ### 16,16, 64
+            x = ly.batch_normal(x,name = 'g_deconv_bn_1',is_training = is_training)
             x = ly.relu(x)
 
-
-            x = ly.conv2d(x, 64, name='e_conv2d_2') ### 8, 8, 64
-            x = ly.batch_normal(x, name='e_bn_2', is_training=is_training)
+            x = ly.deconv2d(x,hidden_num,name = 'g_deconv2d_2') ### 32,32, 64
+            x = ly.batch_normal(x,name = 'g_deconv_bn_2',is_training = is_training)
             x = ly.relu(x)
 
-            x = ly.conv2d(x, 128, name='e_conv2d_3') ### 8, 8, 128
-            x = ly.batch_normal(x, name='e_bn_3', is_training=is_training)
-            x = ly.relu(x)
-
-            x = ly.deconv2d(x,64,name = 'e_deconv2d_0') ### 16,16, 128
-            x = ly.batch_normal(x,name = 'e_bn_5',is_training = is_training)
-            x = ly.relu(x)
-
-            x = ly.deconv2d(x,32,name = 'e_deconv2d_1') ### 32,32, 64
-            x = ly.batch_normal(x,name = 'e_bn_6',is_training = is_training)
-            x = ly.relu(x)
-
-            x = ly.deconv2d(x,16,name = 'e_deconv2d_2') ### 64,64,32
-            x = ly.batch_normal(x,name = 'e_bn_7',is_training = is_training)
-            x = ly.relu(x)
-
-            x = ly.deconv2d(x,8,name = 'e_deconv2d_3') ### 128,128,16
-            x = ly.batch_normal(x,name = 'e_bn_8',is_training = is_training)
-            x = ly.relu(x)
-
-
-            x = ly.deconv2d(x,3,name = 'e_deconv2d_4') ### (256,256,3)
-            x = ly.batch_normal(x,name = 'e_bn_9',is_training = is_training)
+            x = ly.deconv2d(x, 3, name = 'g_deconv2d_3') ### 64,64, 64
+            x = ly.batch_normal(x,name = 'g_deconv_bn_3',is_training = is_training)
             x = tf.nn.tanh(x)
 
             return x
@@ -79,27 +77,28 @@ class GLANN(op_base):
     def perceptual_loss(self, gen, origin):
         alpha1 = 1.
         alpha2 = 1.
+        
         ### content
         gen_conv3_content = self.vgg(gen,conv3 = True) ## imle_deep, h,w,c
         origin_conv3_content = self.vgg(origin,conv3 = True)  ## 1, h,w,c
         mix_origin_conv3_content = tf.concat( [ origin_conv3_content for i in range(self.imle_deep) ], axis = 0 ) ## imle_deep, h,w,c
         content_distance = gen_conv3_content - mix_origin_conv3_content
-        normalize = float( map( np.multiply, gen_conv3_content.get_shape().as_list() ))
         content_loss = tf.reduce_sum(tf.square(content_distance),axis = [1,2,3]) / 2. ## imle_deep
 
         ### style
-        gen_conv3_style = gram(self.vgg(input,conv3 = True)) ## imle_deep, c, c
-        origin_conv3_style = gram(self.vgg(input,conv3 = True)) ## 1, c, c
+        gen_conv3_style = gram(self.vgg(gen,conv3 = True)) ## imle_deep, c, c
+        origin_conv3_style = gram(self.vgg(origin,conv3 = True)) ## 1, c, c
         mix_origin_conv3_style = tf.concat( [ origin_conv3_style for i in range(self.imle_deep) ], axis = 0 ) ## imle_deep, c, c
         style_distance = gen_conv3_style - mix_origin_conv3_style ## imle_deep, c, c
-        style_loss = tf.reduce_sum(tf.square(style_distance),axis = [1,2]) / normalize ## imle_deep
+        
+        style_loss = tf.reduce_sum(tf.square(style_distance),axis = [1,2]) ## imle_deep
 
         return alpha1 * content_loss + alpha2 * style_loss
 
     def dense_generator(self,input,name = 'generator_z'):
         with tf.variable_scope('generator_z',reuse = tf.AUTO_REUSE):
             x = ly.fc(input,1000,name = 'generate_z_fc')
-            x = ly.batch_normal(x)
+            x = ly.batch_normal(x,name = 'generate_z_bn_0')
             return x
 
     def glann_graph(self,z_opt,g_opt):
@@ -128,11 +127,11 @@ class GLANN(op_base):
         self.summaries.append(tf.summary.scalar('g_min_loss',imle_gen_loss)) 
         self.summaries.append(tf.summary.scalar('g_mean_loss',imle_gen_mean_loss)) 
         
-        z_grad = z_opt.compute_gradients(imle_z_loss,var_list = self.get_vars('generator_z')) 
+        z_grad = z_opt.compute_gradients(imle_z_loss,var_list = self.get_vars('generator_z'))
         gen_grad = g_opt.compute_gradients(imle_gen_mean_loss,var_list = self.get_vars('generate_img') )
 
         return z_grad, gen_grad
-        
+
     def train(self):
         self.input_image = tf.placeholder(tf.float32,shape = [self.batch_size,self.image_height,self.image_weight,self.image_channels])
         self.input_z = tf.placeholder(tf.float32,shape = [self.imle_deep,1000] )

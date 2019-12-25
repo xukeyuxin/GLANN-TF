@@ -39,7 +39,7 @@ def load_image(eval = False):
     image_z = []
     for name in tqdm(image_list):
         _content = cv2.imread(os.path.join(image_dir_name,name)).astype(np.float32)
-        _content = cv2.resize(_content,(self.image_height,self.image_weight))
+        _content = cv2.resize(_content,(64,64))
         # image_content.append(cell_content)
         # image_name.append(name)
 
