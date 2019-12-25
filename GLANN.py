@@ -14,7 +14,7 @@ class GLANN(op_base):
         self.sess_arg = tf.Session()
         self.summaries = []
         self.vgg = VGG19()
-        self.train_data_generater = load_image()
+        # self.train_data_generater = load_image()
 
     def get_vars(self,name):
         return tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope = name)
@@ -153,17 +153,19 @@ class GLANN(op_base):
         summary_writer = tf.summary.FileWriter(self.summary_dir, self.sess.graph)
         summary_op = tf.summary.merge(self.summaries)
 
-        for i in range(10000):
-            img_content, name = next(self.train_data_generater)
-            _img_content = np.expand_dims(img_content,axis = 0)
-            _input_z = np.random.normal(size = [self.imle_deep,1000] )
-            _feed_dict = {self.input_image:_img_content,self.input_z:_input_z}
-            for _ in range(10):
-                _z_op,_summary_str = self.sess.run([z_opt,summary_op], feed_dict = _feed_dict)
-                summary_writer.add_summary(_summary_str,i)
+        for _epoch in range(100):
+            self.train_data_generater = load_image()
+            for i in range(1914):
+                img_content, name = next(self.train_data_generater)
+                _img_content = np.expand_dims(img_content,axis = 0)
+                _input_z = np.random.normal(size = [self.imle_deep,1000] )
+                _feed_dict = {self.input_image:_img_content,self.input_z:_input_z}
+                for _ in range(10):
+                    _z_op,_summary_str = self.sess.run([z_opt,summary_op], feed_dict = _feed_dict)
+                    summary_writer.add_summary(_summary_str,i)
 
-            _g_op,_summary_op = self.sess.run([gen_opt,summary_op], feed_dict = _feed_dict)
-            summary_writer.add_summary(_summary_str,i)
+                _g_op,_summary_op = self.sess.run([gen_opt,summary_op], feed_dict = _feed_dict)
+                summary_writer.add_summary(_summary_str,i)
 
             
 
