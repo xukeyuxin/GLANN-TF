@@ -5,6 +5,18 @@ import cv2
 import numpy as np
 import tensorflow as tf
 
+
+def gram(layer):
+    shape = tf.shape(layer)
+    num_images = shape[0]
+    width = shape[1]
+    height = shape[2]
+    num_filters = shape[3]
+    filters = tf.reshape(layer, tf.stack([num_images, -1, num_filters]))
+    grams = tf.matmul(filters, filters, transpose_a=True) / tf.to_float(width * height * num_filters)
+
+    return grams 
+
 def rgb_float(image_content):
     return image_content / 127.5 - 1
 
@@ -26,12 +38,12 @@ def load_image(eval = False):
     image_n = []
     image_z = []
     for name in tqdm(image_list):
-        cell_content = cv2.imread(os.path.join(image_dir_name,name)).astype(np.float32)
-        cell_content = cv2.resize(cell_content,(self.image_height,self.image_weight))
-        image_content.append(cell_content)
-        image_name.append(name)
+        _content = cv2.imread(os.path.join(image_dir_name,name)).astype(np.float32)
+        _content = cv2.resize(_content,(self.image_height,self.image_weight))
+        # image_content.append(cell_content)
+        # image_name.append(name)
 
-    return rgb_float(np.array(image_content)), image_name
+        yield rgb_float(_content), name
 
 def load_one_batch_image(self,index_batch):
     image_dir_name = os.path.join('data','random_faces_1000')

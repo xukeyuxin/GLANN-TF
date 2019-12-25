@@ -134,7 +134,7 @@ def _batch_normal(input,name = None,is_training=True, moving_decay=0.99):
             with tf.control_dependencies([ema_apply_op]):
                 return tf.identity(mean),tf.identity(variance)
 
-        mean, variance = tf.cond(tf.equal(is_training, True) , mean_var_with_update,
+        mean, variance = tf.cond(tf.equal(is_training, True) , mean_vars_update,
                             lambda: (ema.average(mean), ema.average(variance)))
 
         epsilon = 1e-5

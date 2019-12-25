@@ -14,29 +14,19 @@ class GLANN(op_base):
         self.sess_arg = tf.Session()
         self.summaries = []
         self.vgg = VGG19()
-
-    def init_sess(self,sess,init):
-        sess.run(init)
+        self.train_data_generater = load_image(self,eval = False)
 
     def get_vars(self,name):
         return tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope = name)
+        
+    def get_single_var(self,name):
+        var_collection = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=name)
+        if(var_collection):
+            return  var_collection[0]
+        else:
+            return []
 
-    def embedding_graph(self,update_vocab):
-
-        encode = ly.fc(update_vocab,self.embedding_size,name = 'embedding_fc_0')
-        encode = ly.batch_normal(encode,name = 'embedding_bn_0')
-        encode = ly.relu(encode)
-
-        return  encode
-
-    def vgg_graph(self,input_z,label,vgg_opt,is_training = True):
-        fake = self.encoder(input_z,name = 'encode',is_training = is_training)
-        vgg_loss = tf.reduce_sum( tf.square( self.vgg(fake) - self.vgg(label) ),axis = [0,1,2,3] )
-        print(vgg_loss)
-        vgg_gred = vgg_opt.compute_gradients(vgg_loss,var_list = self.get_vars('encode') + self.get_vars('embedding'))
-        return vgg_loss, vgg_gred
-
-    def encoder(self,input_z,name = 'encode',is_training = True):
+    def encoder(self,input_z,name = 'generate_img',is_training = True):
         with tf.variable_scope(name,reuse = tf.AUTO_REUSE):
 
             x = tf.reshape(input_z, shape=[-1, 8, 8, 8])
@@ -81,34 +71,102 @@ class GLANN(op_base):
 
             return x
 
-
-    def get_vars(self, name, scope=None):
-        return tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=name)
-
-    def get_single_var(self,name):
-        var_collection = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=name)
-        if(var_collection):
-            return  var_collection[0]
-        else:
-            return []
-
-    def make_data_queue(self,eval = False):
-        images_label, image_names = load_image(self,eval = eval)
-        input_queue = tf.train.slice_input_producer([images_label, image_names], num_epochs=self.epoch, shuffle=False)
-        label, name = tf.train.batch(input_queue, batch_size=self.batch_size, num_threads=2,
-                                      capacity=64,
-                                      allow_smaller_final_batch=False)
-
-        return label, name
-
-    def train(self):
-        # label, name = self.make_data_queue()
-        self.start(pre_train = False)
-
     def eval(self):
         self.epoch = 1
         label, name = self.make_data_queue(eval = True)
         self.start(label, name,is_training = False)
+
+    def perceptual_loss(self, gen, origin):
+        alpha1 = 1.
+        alpha2 = 1.
+        ### content
+        gen_conv3_content = self.vgg(gen,conv3 = True) ## imle_deep, h,w,c
+        origin_conv3_content = self.vgg(origin,conv3 = True)  ## 1, h,w,c
+        mix_origin_conv3_content = tf.concat( [ origin_conv3_content for i in range(self.imle_deep) ], axis = 0 ) ## imle_deep, h,w,c
+        content_distance = gen_conv3_content - mix_origin_conv3_content
+        normalize = float( map( np.multiply, gen_conv3_content.get_shape().as_list() ))
+        content_loss = tf.reduce_sum(tf.square(content_distance),axis = [1,2,3]) / 2. ## imle_deep
+
+        ### style
+        gen_conv3_style = gram(self.vgg(input,conv3 = True)) ## imle_deep, c, c
+        origin_conv3_style = gram(self.vgg(input,conv3 = True)) ## 1, c, c
+        mix_origin_conv3_style = tf.concat( [ origin_conv3_style for i in range(self.imle_deep) ], axis = 0 ) ## imle_deep, c, c
+        style_distance = gen_conv3_style - mix_origin_conv3_style ## imle_deep, c, c
+        style_loss = tf.reduce_sum(tf.square(style_distance),axis = [1,2]) / normalize ## imle_deep
+
+        return alpha1 * content_loss + alpha2 * style_loss
+
+    def dense_generator(self,input,name = 'generator_z'):
+        with tf.variable_scope('generator_z',reuse = tf.AUTO_REUSE):
+            x = ly.fc(input,1000,name = 'generate_z_fc')
+            x = ly.batch_normal(x)
+            return x
+
+    def glann_graph(self,z_opt,g_opt):
+        
+        # tf.get_variable('noise',shape = [self.imle_deep,1000],initializer=tf.random_normal_initializer(mean=0.,stddev = 0.02))
+
+        self.z = self.dense_generator(self.input_z)  ### 16, 1000
+        fake_img = self.encoder(self.z) 
+        mix_input_image = tf.concat( [ self.input_image for i in range(self.imle_deep)], axis = 0 )
+        img_distance = fake_img - mix_input_image
+        #### l2 loss
+        l2_loss = tf.reduce_sum(tf.square(img_distance),axis = [1,2,3]) / 2.
+        imle_z_index = tf.argmin(l2_loss)
+        imle_z_loss = tf.reduce_min(l2_loss)
+        imle_z_mean_loss = tf.reduce_mean(l2_loss)
+        self.summaries.append(tf.summary.scalar('z_min_loss',imle_z_loss)) 
+        self.summaries.append(tf.summary.scalar('z_mean_loss',imle_z_loss)) 
+        imle_choose_z = self.z[imle_z_index]
+        imle_choose_img = tf.expand_dims(fake_img[imle_z_index],axis = 0)
+
+        #### perceptual_loss
+        perceptual_loss = self.perceptual_loss(fake_img, self.input_image)
+        # imle_gen_index = tf.argmin(perceptual_loss)
+        imle_gen_loss = tf.reduce_min(perceptual_loss)
+        imle_gen_mean_loss = tf.reduce_mean(perceptual_loss)
+        self.summaries.append(tf.summary.scalar('g_min_loss',imle_gen_loss)) 
+        self.summaries.append(tf.summary.scalar('g_mean_loss',imle_gen_mean_loss)) 
+        
+        z_grad = z_opt.compute_gradients(imle_z_loss,var_list = self.get_vars('generator_z')) 
+        gen_grad = g_opt.compute_gradients(imle_gen_mean_loss,var_list = self.get_vars('generate_img') )
+
+        return z_grad, gen_grad
+        
+    def train(self):
+        self.input_image = tf.placeholder(tf.float32,shape = [self.batch_size,self.image_height,self.image_weight,self.image_channels])
+        self.input_z = tf.placeholder(tf.float32,shape = [self.imle_deep,1000] )
+
+        z_optimizer = tf.train.AdamOptimizer(self.lr)
+        gen_optimizer = tf.train.AdamOptimizer(self.lr)
+        z_grad, gen_grad = self.glann_graph(z_optimizer,gen_optimizer)
+        z_opt = z_optimizer.apply_gradients(z_grad)
+        gen_opt = gen_optimizer.apply_gradients(gen_grad)
+
+        ## init
+        self.sess.run(tf.global_variables_initializer())
+
+        ## summary init
+        summary_writer = tf.summary.FileWriter(self.summary_dir, self.sess.graph)
+        summary_op = tf.summary.merge(self.summaries)
+
+        for i in range(10000):
+            img_content, name = next(self.train_data_generater)
+            _img_content = np.expand_dims(img_content,axis = 0)
+            _input_z = np.random.normal(size = [self.imle_deep,1000] )
+            _feed_dict = {self.input_image:_img_content,self.input_z:_input_z}
+            for _ in range(10):
+                _z_op,_summary_str = self.sess.run([z_opt,summary_op], feed_dict = _feed_dict)
+                summary_writer.add_summary(_summary_str)
+
+            _g_op,_summary_op = self.sess.run([gen_opt,summary_op], feed_dict = _feed_dict)
+            summary_writer.add_summary(_summary_str)
+
+            
+
+
+
+
 
 
     def start(self,is_training = True,pre_train = False):
@@ -198,7 +256,6 @@ class GLANN(op_base):
                         print('update model')
                         saver.save(self.sess,os.path.join(self.model_save_path,'model_%s.ckpt' % step))
                     step += 1
-
 
 
         if(not is_training):

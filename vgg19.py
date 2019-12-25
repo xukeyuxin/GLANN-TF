@@ -6,7 +6,7 @@ class VGG19(object):
     def __init__(self):
         self.para = np.load(os.path.join('data','vgg19.npy'), encoding="latin1",allow_pickle=True).item()
 
-    def __call__(self,inputs):
+    def __call__(self,inputs,conv3 = False, conv4 = False, conv5 = False):
         def relu(input, alpha=0.2):
             return tf.maximum(input, alpha * input)
         def conv(input, weight, bias):
@@ -29,16 +29,21 @@ class VGG19(object):
         inputs = relu(conv(inputs, self.para["conv3_2"][0], self.para["conv3_2"][1]))
         inputs = relu(conv(inputs, self.para["conv3_3"][0], self.para["conv3_3"][1]))
         inputs = relu(conv(inputs, self.para["conv3_4"][0], self.para["conv3_4"][1]))
+        if(conv3):
+            return inputs
         inputs = max_pooling(inputs)  ## (32,32,3)
         inputs = relu(conv(inputs, self.para["conv4_1"][0], self.para["conv4_1"][1]))
         inputs = relu(conv(inputs, self.para["conv4_2"][0], self.para["conv4_2"][1]))
         inputs = relu(conv(inputs, self.para["conv4_3"][0], self.para["conv4_3"][1]))
         inputs = relu(conv(inputs, self.para["conv4_4"][0], self.para["conv4_4"][1]))
+        if(conv4):
+            return inputs
         inputs = max_pooling(inputs)  ## (16,16,3)
         inputs = relu(conv(inputs, self.para["conv5_1"][0], self.para["conv5_1"][1]))
         inputs = relu(conv(inputs, self.para["conv5_2"][0], self.para["conv5_2"][1]))
         inputs = relu(conv(inputs, self.para["conv5_3"][0], self.para["conv5_3"][1]))
         inputs = relu(conv(inputs, self.para["conv5_4"][0], self.para["conv5_4"][1]))
+        if(conv5):
+            return inputs
         inputs = max_pooling(inputs)  ## (8,8,3)
-
         return inputs

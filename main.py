@@ -13,7 +13,7 @@ parser.add_argument("-sd", "--summary_dir", type=str, default="./logs")
 parser.add_argument("-ms", "--model_save_path", type=str, default="./model")
 
 # Train Iteration
-parser.add_argument("-b", "--batch_size", type=int, default=5)
+parser.add_argument("-b", "--batch_size", type=int, default=1)
 parser.add_argument("-vs", "--vocab_size", type=int, default=1000)
 parser.add_argument("-vb", "--vocab_dim", type=int, default=100)
 parser.add_argument("-es", "--embedding_size", type=int, default=512)
@@ -21,6 +21,9 @@ parser.add_argument("-es", "--embedding_size", type=int, default=512)
 parser.add_argument("-ic", "--image_channels", type=int, default=3)
 parser.add_argument("-iw", "--image_weight", type=int, default=256)
 parser.add_argument("-ih", "--image_height", type=int, default=256)
+
+parser.add_argument("-ndeep", "--imle_deep", type=int, default=16)
+
 parser.add_argument("-ndeep", "--n_deep", type=int, default=64)
 parser.add_argument("-ndim", "--n_dim", type=int, default=64)
 parser.add_argument("-ed", "--en_dim", type=int, default=512)
