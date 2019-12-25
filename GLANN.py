@@ -156,7 +156,7 @@ class GLANN(op_base):
             _feed_dict = {self.input_image:_img_content,self.input_z:_input_z}
             for _ in range(10):
                 _z_op,_summary_str = self.sess.run([z_opt,summary_op], feed_dict = _feed_dict)
-                summary_writer.add_summary(_summary_str)
+                summary_writer.add_summary(_summary_str,i)
 
             _g_op,_summary_op = self.sess.run([gen_opt,summary_op], feed_dict = _feed_dict)
             summary_writer.add_summary(_summary_str)
@@ -168,111 +168,111 @@ class GLANN(op_base):
 
 
 
-    def start(self,is_training = True,pre_train = False):
+    # def start(self,is_training = True,pre_train = False):
 
-        ## lr
-        global_steps = tf.get_variable(name='global_step', shape=[], initializer=tf.constant_initializer(0),
-                                       trainable=False)
-        decay_change_batch_num = 200.0
-        train_data_num = 2000 * self.epoch
-        decay_steps = (train_data_num / self.batch_size / self.gpu_nums) * decay_change_batch_num
+    #     ## lr
+    #     global_steps = tf.get_variable(name='global_step', shape=[], initializer=tf.constant_initializer(0),
+    #                                    trainable=False)
+    #     decay_change_batch_num = 200.0
+    #     train_data_num = 2000 * self.epoch
+    #     decay_steps = (train_data_num / self.batch_size / self.gpu_nums) * decay_change_batch_num
 
-        lr = tf.train.exponential_decay(self.lr,
-                                        global_steps,
-                                        decay_steps,
-                                        0.1,
-                                        staircase=True)
+    #     lr = tf.train.exponential_decay(self.lr,
+    #                                     global_steps,
+    #                                     decay_steps,
+    #                                     0.1,
+    #                                     staircase=True)
 
-        self.summaries.append(tf.summary.scalar('lr',lr))
+    #     self.summaries.append(tf.summary.scalar('lr',lr))
 
-        ## opt
-        vgg_opt = tf.train.AdamOptimizer(lr)
+    #     ## opt
+    #     vgg_opt = tf.train.AdamOptimizer(lr)
 
-        ## graph
-        self.input_image = tf.placeholder(tf.float32,shape = [self.batch_size,self.image_height,self.image_weight,self.image_channels])
-        self.input_index = tf.placeholder(tf.int32,shape = [self.batch_size])
+    #     ## graph
+    #     self.input_image = tf.placeholder(tf.float32,shape = [self.batch_size,self.image_height,self.image_weight,self.image_channels])
+    #     self.input_index = tf.placeholder(tf.int32,shape = [self.batch_size])
 
-        ## one_hot
-        # self.embedding_vocab = tf.get_variable('embedding',initializer = tf.one_hot(tf.range(self.vocab_size),self.vocab_size))
+    #     ## one_hot
+    #     # self.embedding_vocab = tf.get_variable('embedding',initializer = tf.one_hot(tf.range(self.vocab_size),self.vocab_size))
 
-        ## random_normal
-        self.embedding_vocab = tf.get_variable('embedding',shape = [self.vocab_size,self.vocab_dim],initializer = tf.random_normal_initializer(stddev = 0.02,mean = 0))
-        # self.update_vocab = tf.nn.embedding_lookup(self.embedding_vocab,self.input_index)
+    #     ## random_normal
+    #     self.embedding_vocab = tf.get_variable('embedding',shape = [self.vocab_size,self.vocab_dim],initializer = tf.random_normal_initializer(stddev = 0.02,mean = 0))
+    #     # self.update_vocab = tf.nn.embedding_lookup(self.embedding_vocab,self.input_index)
 
-        ## embedding dim
-        update_vocab = tf.nn.embedding_lookup(self.embedding_vocab, self.input_index)
+    #     ## embedding dim
+    #     update_vocab = tf.nn.embedding_lookup(self.embedding_vocab, self.input_index)
 
-        ### index 对应的编码
-        encode = self.embedding_graph(update_vocab)
+    #     ### index 对应的编码
+    #     encode = self.embedding_graph(update_vocab)
 
-        one_moid_encode = tf.map_fn(update_embedding_mold,encode)
-
-
-        ### one_moid vgg-loss
-        vgg_loss, vgg_grad = self.vgg_graph(one_moid_encode,self.input_image,vgg_opt,is_training = is_training)
-        self.summaries.append(tf.summary.scalar('loss',vgg_loss))
-        ### grad_op
-        vgg_grad_op = vgg_opt.apply_gradients(vgg_grad,global_step=global_steps)
-
-        ### variable_op
-        train_op = tf.group(vgg_grad_op)
-
-        ### variable_summary
-        for var in tf.trainable_variables():
-            print( 'name: %s, shape: %s' % (var.op.name, reduce( lambda x,y:x * y, var.get_shape().as_list()) ))
-            self.summaries.append(tf.summary.histogram(var.op.name, var))
-        ## init
-        self.init_sess(self.sess,[tf.global_variables_initializer(),tf.local_variables_initializer()])
-
-        ## summary init
-        summary_writer = tf.summary.FileWriter(self.summary_dir, self.sess.graph)
-        summary_op = tf.summary.merge(self.summaries)
-
-        # ## queue init
-        # coord = tf.train.Coordinator()
-        # thread = tf.train.start_queue_runners(sess = self.sess)
-
-        ### train
-        saver = tf.train.Saver(max_to_keep = 1)
-        step = 1
-        print('start train')
-        if(is_training):
-            if(pre_train):
-                saver.restore(self.sess, tf.train.latest_checkpoint(self.model_save_path))
-                print('restore success')
-            for _ in range(self.epoch):
-                for i in range(0,self.vocab_size,self.batch_size):
-                    if( (i+self.batch_size) >= (self.vocab_size - 1)):
-                        continue
-                    one_batch_index = range(i, i+self.batch_size)
-                    one_batch_image = load_one_batch_image(self,one_batch_index)
-                    print('start %s' % step)
-                    _g,_str = self.sess.run([train_op,summary_op],feed_dict = {self.input_image:one_batch_image,self.input_index:one_batch_index})
-                    if(step % 10 == 0):
-                        print('update summary')
-                        summary_writer.add_summary(_str,step)
-                    if(step % 100 == 0):
-                        print('update model')
-                        saver.save(self.sess,os.path.join(self.model_save_path,'model_%s.ckpt' % step))
-                    step += 1
+    #     one_moid_encode = tf.map_fn(update_embedding_mold,encode)
 
 
-        if(not is_training):
-            saver.restore(self.sess, tf.train.latest_checkpoint(self.model_save_path))
-            print('restore success')
-            try:
-                while not coord.should_stop():
-                    print('start %s' % step)
-                    _fake, _eval_name = self.sess.run([self.eval_fake,self.eval_name])
-                    make_image(_fake,_eval_name)
+    #     ### one_moid vgg-loss
+    #     vgg_loss, vgg_grad = self.vgg_graph(one_moid_encode,self.input_image,vgg_opt,is_training = is_training)
+    #     self.summaries.append(tf.summary.scalar('loss',vgg_loss))
+    #     ### grad_op
+    #     vgg_grad_op = vgg_opt.apply_gradients(vgg_grad,global_step=global_steps)
 
-            except tf.errors.OutOfRangeError:
-                print('finish thread')
-            finally:
-                coord.request_stop()
+    #     ### variable_op
+    #     train_op = tf.group(vgg_grad_op)
 
-            coord.join(thread)
-            print('thread break')
+    #     ### variable_summary
+    #     for var in tf.trainable_variables():
+    #         print( 'name: %s, shape: %s' % (var.op.name, reduce( lambda x,y:x * y, var.get_shape().as_list()) ))
+    #         self.summaries.append(tf.summary.histogram(var.op.name, var))
+    #     ## init
+    #     self.init_sess(self.sess,[tf.global_variables_initializer(),tf.local_variables_initializer()])
+
+    #     ## summary init
+    #     summary_writer = tf.summary.FileWriter(self.summary_dir, self.sess.graph)
+    #     summary_op = tf.summary.merge(self.summaries)
+
+    #     # ## queue init
+    #     # coord = tf.train.Coordinator()
+    #     # thread = tf.train.start_queue_runners(sess = self.sess)
+
+    #     ### train
+    #     saver = tf.train.Saver(max_to_keep = 1)
+    #     step = 1
+    #     print('start train')
+    #     if(is_training):
+    #         if(pre_train):
+    #             saver.restore(self.sess, tf.train.latest_checkpoint(self.model_save_path))
+    #             print('restore success')
+    #         for _ in range(self.epoch):
+    #             for i in range(0,self.vocab_size,self.batch_size):
+    #                 if( (i+self.batch_size) >= (self.vocab_size - 1)):
+    #                     continue
+    #                 one_batch_index = range(i, i+self.batch_size)
+    #                 one_batch_image = load_one_batch_image(self,one_batch_index)
+    #                 print('start %s' % step)
+    #                 _g,_str = self.sess.run([train_op,summary_op],feed_dict = {self.input_image:one_batch_image,self.input_index:one_batch_index})
+    #                 if(step % 10 == 0):
+    #                     print('update summary')
+    #                     summary_writer.add_summary(_str,step)
+    #                 if(step % 100 == 0):
+    #                     print('update model')
+    #                     saver.save(self.sess,os.path.join(self.model_save_path,'model_%s.ckpt' % step))
+    #                 step += 1
+
+
+    #     if(not is_training):
+    #         saver.restore(self.sess, tf.train.latest_checkpoint(self.model_save_path))
+    #         print('restore success')
+    #         try:
+    #             while not coord.should_stop():
+    #                 print('start %s' % step)
+    #                 _fake, _eval_name = self.sess.run([self.eval_fake,self.eval_name])
+    #                 make_image(_fake,_eval_name)
+
+    #         except tf.errors.OutOfRangeError:
+    #             print('finish thread')
+    #         finally:
+    #             coord.request_stop()
+
+    #         coord.join(thread)
+    #         print('thread break')
 
 
 
