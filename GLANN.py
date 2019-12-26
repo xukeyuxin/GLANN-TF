@@ -6,6 +6,7 @@ from vgg19 import VGG19
 from op_base import op_base
 from util import *
 from functools import reduce
+import math
 
 class GLANN(op_base):
     def __init__(self,args,sess):
@@ -95,56 +96,103 @@ class GLANN(op_base):
 
         return alpha1 * content_loss + alpha2 * style_loss
 
-    def dense_generator(self,input,name = 'generator_z'):
-        with tf.variable_scope('generator_z',reuse = tf.AUTO_REUSE):
-            x = ly.fc(input,1000,name = 'generate_z_fc')
-            x = ly.batch_normal(x,name = 'generate_z_bn_0')
-            return x
+    def local_moment_loss(self, pred, gt):
+        with tf.name_scope('local_moment_loss'):
 
-    def glann_graph(self,z_opt,g_opt):
+            ksz, kst = 4, 2
+            local_patch = tf.ones((ksz, ksz, 1, 1))
+            c = pred.get_shape()[-1]
+
+            # Normalize by kernel size
+            pr_mean = tf.concat([tf.nn.conv2d(x, local_patch, strides=[1, kst, kst, 1], padding='VALID') for x in tf.split(pred, c, axis=3)], axis=3)
+            pr_var = tf.concat([tf.nn.conv2d(tf.square(x), local_patch, strides=[1, kst, kst, 1], padding='VALID') for x in tf.split(pred, c, axis=3)], axis=3)
+            pr_var = (pr_var - tf.square(pr_mean)/(ksz**2)) / (ksz ** 2)
+            pr_mean = pr_mean / (ksz ** 2)
+
+            gt_mean = tf.concat([tf.nn.conv2d(x, local_patch, strides=[1, kst, kst, 1], padding='VALID') for x in tf.split(gt, c, axis=3)], axis=3)
+            gt_var = tf.concat([tf.nn.conv2d(tf.square(x), local_patch, strides=[1, kst, kst, 1], padding='VALID') for x in tf.split(gt, c, axis=3)], axis=3)
+            gt_var = (gt_var - tf.square(gt_mean)/(ksz**2)) / (ksz ** 2)
+            gt_mean = gt_mean / (ksz ** 2)
+
+            # scaling by local patch size
+            local_mean_loss = tf.reduce_mean(tf.abs(pr_mean - gt_mean), axis = [1,2,3])
+            local_var_loss = tf.reduce_mean(tf.abs(pr_var - gt_var), axis = [1,2,3])
+        return local_mean_loss + local_var_loss
+
+    def normalizer(self,input,name = 'generator_z'):
+        def _normal(item):
+            _normal_weight = tf.reduce_sum(tf.square(input))
+            return item / _normal_weight
+        with tf.name_scope(name):
+            x = tf.map_fn(_normal,input)
+            return x
+        # with tf.variable_scope('generator_z',reuse = tf.AUTO_REUSE):
+        #     # x = ly.fc(input,1000,name = 'generate_z_fc')
+        #     x = ly.batch_normal(input,name = 'generate_z_bn_0')
+        #     return x
+
+    def xavier_initializer(self,shape, gain = 1.):
+        if(len(shape) == 4):
+            fan_in = reduce( np.multiply, shape[1:] )  # 输入通道
+            fan_out = reduce( np.multiply, shape[1:] )  # 输出通道
+        if(len(shape) == 2):
+            fan_in = 1000
+            fan_out = 1000
+        variation = (2/( fan_in +fan_out)) * gain
+        std = math.sqrt(variation)
+        result = np.random.normal(0,std,shape)
+        return result
+
+    def init_z(self,init_code):
+        init_op = tf.assign(self.input_z,init_code)
+        return init_op
+    def glann_graph(self,g_opt):
         
         # tf.get_variable('noise',shape = [self.imle_deep,1000],initializer=tf.random_normal_initializer(mean=0.,stddev = 0.02))
 
-        self.z = self.dense_generator(self.input_z)  ### 16, 1000
+        self.z = self.normalizer(self.input_z)  ### 16, 1000      normalied
         fake_img = self.encoder(self.z) 
         mix_input_image = tf.concat( [ self.input_image for i in range(self.imle_deep)], axis = 0 )
-        img_distance = fake_img - mix_input_image
+
+        #### local moment loss
+        moment_loss = self.local_moment_loss(fake_img, mix_input_image)
+        imle_z_grad = tf.gradients(moment_loss,self.input_z)[0] ### 16, 1000
+
+        update_input = self.input_z - self.z_lr * imle_z_grad
+        update_op = tf.assign(self.input_z, update_input) 
+        
         #### l2 loss
-        l2_loss = tf.reduce_sum(tf.square(img_distance),axis = [1,2,3]) / 2.
-        imle_z_index = tf.argmin(l2_loss)
-        imle_z_loss = tf.reduce_min(l2_loss)
-        imle_z_mean_loss = tf.reduce_mean(l2_loss)
-        self.summaries.append(tf.summary.scalar('z_min_loss',imle_z_loss)) 
-        self.summaries.append(tf.summary.scalar('z_mean_loss',imle_z_loss)) 
-        imle_choose_z = self.z[imle_z_index]
-        imle_choose_img = tf.expand_dims(fake_img[imle_z_index],axis = 0)
+        # img_distance = fake_img - mix_input_image
+        # l2_loss = tf.reduce_sum(tf.square(img_distance),axis = [1,2,3]) / 2.
+        # imle_z_index = tf.argmin(l2_loss)
+        # imle_z_loss = tf.reduce_min(l2_loss)
+        # imle_z_mean_loss = tf.reduce_mean(l2_loss)
+        # self.summaries.append(tf.summary.scalar('z_min_loss',imle_z_loss)) 
+        # self.summaries.append(tf.summary.scalar('z_mean_loss',imle_z_loss)) 
+        # imle_choose_z = self.z[imle_z_index]
+        # imle_choose_img = tf.expand_dims(fake_img[imle_z_index],axis = 0)
 
         #### perceptual_loss
-        # perceptual_loss = self.perceptual_loss(fake_img, self.input_image)
-        # imle_gen_loss = tf.reduce_min(perceptual_loss)
-        # imle_gen_mean_loss = tf.reduce_mean(perceptual_loss)
-
-        perceptual_loss = self.perceptual_loss(imle_choose_img, self.input_image)
+        perceptual_loss = self.perceptual_loss(fake_img, self.input_image)
         imle_gen_loss = tf.reduce_min(perceptual_loss)
         imle_gen_mean_loss = tf.reduce_mean(perceptual_loss)
 
         self.summaries.append(tf.summary.scalar('g_min_loss',imle_gen_loss)) 
         self.summaries.append(tf.summary.scalar('g_mean_loss',imle_gen_mean_loss)) 
-        
-        z_grad = z_opt.compute_gradients(imle_z_loss,var_list = self.get_vars('generator_z'))
-        gen_grad = g_opt.compute_gradients(imle_gen_mean_loss,var_list = self.get_vars('generate_img') )
 
-        return z_grad, gen_grad
+        gen_grad = g_opt.compute_gradients(imle_gen_loss,var_list = self.get_vars('generate_img') )
+        ### clip gridents
+        gen_op = g_opt.apply_gradients(gen_grad)
+
+        return update_op, gen_op
 
     def train(self):
-        self.input_image = tf.placeholder(tf.float32,shape = [self.batch_size,self.image_height,self.image_weight,self.image_channels])
-        self.input_z = tf.placeholder(tf.float32,shape = [self.imle_deep,1000] )
+        self.input_image = tf.placeholder(tf.float32, shape = [1,self.image_height,self.image_weight,self.image_channels] )
+        # self.input_z = tf.placeholder(tf.float32, shape = [self.imle_deep,1000] )
+        self.input_z = tf.get_variable('noise',shape = [self.imle_deep,1000],initializer = tf.random_normal_initializer(stddev = 0.02))
 
-        z_optimizer = tf.train.AdamOptimizer(self.lr)
         gen_optimizer = tf.train.AdamOptimizer(self.lr)
-        z_grad, gen_grad = self.glann_graph(z_optimizer,gen_optimizer)
-        z_opt = z_optimizer.apply_gradients(z_grad)
-        gen_opt = gen_optimizer.apply_gradients(gen_grad)
+        z_update, gen_opt = self.glann_graph(gen_optimizer)
 
         ## init
         self.sess.run(tf.global_variables_initializer())
@@ -158,131 +206,21 @@ class GLANN(op_base):
             for i in range(1914):
                 img_content, name = next(self.train_data_generater)
                 _img_content = np.expand_dims(img_content,axis = 0)
-                _input_z = np.random.normal(size = [self.imle_deep,1000] )
-                _feed_dict = {self.input_image:_img_content,self.input_z:_input_z}
-                for _ in range(10):
-                    _z_op,_summary_str = self.sess.run([z_opt,summary_op], feed_dict = _feed_dict)
+
+                ### xavier init
+                _input_z = self.xavier_initializer( shape = [self.imle_deep,1000] )
+                _init_op = self.init_z(_input_z)
+                self.sess.run(_init_op)
+                for _ in range(100):
+                    
+                    _feed_dict = {self.input_image:_img_content}
+                    _z_update, _summary_str = self.sess.run([z_update,summary_op], feed_dict = _feed_dict)
                     summary_writer.add_summary(_summary_str,i)
 
-                _g_op,_summary_op = self.sess.run([gen_opt,summary_op], feed_dict = _feed_dict)
-                summary_writer.add_summary(_summary_str,i)
+                    _g_op,_summary_op = self.sess.run([gen_opt,summary_op], feed_dict = _feed_dict)
+                    summary_writer.add_summary(_summary_str,i)
 
             
-
-
-
-
-
-
-    # def start(self,is_training = True,pre_train = False):
-
-    #     ## lr
-    #     global_steps = tf.get_variable(name='global_step', shape=[], initializer=tf.constant_initializer(0),
-    #                                    trainable=False)
-    #     decay_change_batch_num = 200.0
-    #     train_data_num = 2000 * self.epoch
-    #     decay_steps = (train_data_num / self.batch_size / self.gpu_nums) * decay_change_batch_num
-
-    #     lr = tf.train.exponential_decay(self.lr,
-    #                                     global_steps,
-    #                                     decay_steps,
-    #                                     0.1,
-    #                                     staircase=True)
-
-    #     self.summaries.append(tf.summary.scalar('lr',lr))
-
-    #     ## opt
-    #     vgg_opt = tf.train.AdamOptimizer(lr)
-
-    #     ## graph
-    #     self.input_image = tf.placeholder(tf.float32,shape = [self.batch_size,self.image_height,self.image_weight,self.image_channels])
-    #     self.input_index = tf.placeholder(tf.int32,shape = [self.batch_size])
-
-    #     ## one_hot
-    #     # self.embedding_vocab = tf.get_variable('embedding',initializer = tf.one_hot(tf.range(self.vocab_size),self.vocab_size))
-
-    #     ## random_normal
-    #     self.embedding_vocab = tf.get_variable('embedding',shape = [self.vocab_size,self.vocab_dim],initializer = tf.random_normal_initializer(stddev = 0.02,mean = 0))
-    #     # self.update_vocab = tf.nn.embedding_lookup(self.embedding_vocab,self.input_index)
-
-    #     ## embedding dim
-    #     update_vocab = tf.nn.embedding_lookup(self.embedding_vocab, self.input_index)
-
-    #     ### index 对应的编码
-    #     encode = self.embedding_graph(update_vocab)
-
-    #     one_moid_encode = tf.map_fn(update_embedding_mold,encode)
-
-
-    #     ### one_moid vgg-loss
-    #     vgg_loss, vgg_grad = self.vgg_graph(one_moid_encode,self.input_image,vgg_opt,is_training = is_training)
-    #     self.summaries.append(tf.summary.scalar('loss',vgg_loss))
-    #     ### grad_op
-    #     vgg_grad_op = vgg_opt.apply_gradients(vgg_grad,global_step=global_steps)
-
-    #     ### variable_op
-    #     train_op = tf.group(vgg_grad_op)
-
-    #     ### variable_summary
-    #     for var in tf.trainable_variables():
-    #         print( 'name: %s, shape: %s' % (var.op.name, reduce( lambda x,y:x * y, var.get_shape().as_list()) ))
-    #         self.summaries.append(tf.summary.histogram(var.op.name, var))
-    #     ## init
-    #     self.init_sess(self.sess,[tf.global_variables_initializer(),tf.local_variables_initializer()])
-
-    #     ## summary init
-    #     summary_writer = tf.summary.FileWriter(self.summary_dir, self.sess.graph)
-    #     summary_op = tf.summary.merge(self.summaries)
-
-    #     # ## queue init
-    #     # coord = tf.train.Coordinator()
-    #     # thread = tf.train.start_queue_runners(sess = self.sess)
-
-    #     ### train
-    #     saver = tf.train.Saver(max_to_keep = 1)
-    #     step = 1
-    #     print('start train')
-    #     if(is_training):
-    #         if(pre_train):
-    #             saver.restore(self.sess, tf.train.latest_checkpoint(self.model_save_path))
-    #             print('restore success')
-    #         for _ in range(self.epoch):
-    #             for i in range(0,self.vocab_size,self.batch_size):
-    #                 if( (i+self.batch_size) >= (self.vocab_size - 1)):
-    #                     continue
-    #                 one_batch_index = range(i, i+self.batch_size)
-    #                 one_batch_image = load_one_batch_image(self,one_batch_index)
-    #                 print('start %s' % step)
-    #                 _g,_str = self.sess.run([train_op,summary_op],feed_dict = {self.input_image:one_batch_image,self.input_index:one_batch_index})
-    #                 if(step % 10 == 0):
-    #                     print('update summary')
-    #                     summary_writer.add_summary(_str,step)
-    #                 if(step % 100 == 0):
-    #                     print('update model')
-    #                     saver.save(self.sess,os.path.join(self.model_save_path,'model_%s.ckpt' % step))
-    #                 step += 1
-
-
-    #     if(not is_training):
-    #         saver.restore(self.sess, tf.train.latest_checkpoint(self.model_save_path))
-    #         print('restore success')
-    #         try:
-    #             while not coord.should_stop():
-    #                 print('start %s' % step)
-    #                 _fake, _eval_name = self.sess.run([self.eval_fake,self.eval_name])
-    #                 make_image(_fake,_eval_name)
-
-    #         except tf.errors.OutOfRangeError:
-    #             print('finish thread')
-    #         finally:
-    #             coord.request_stop()
-
-    #         coord.join(thread)
-    #         print('thread break')
-
-
-
-
 
 
 

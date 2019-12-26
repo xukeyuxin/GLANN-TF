@@ -65,3 +65,4 @@ def make_image(input,name_list):
         cv2.imwrite(os.path.join(write_dir,name_list[index].decode()), cell)
         index += 1
 
+
