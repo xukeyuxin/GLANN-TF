@@ -187,7 +187,7 @@ class GLANN(op_base):
         return update_op, gen_op
     def make_img(self,img,name):
         rgb_img = float_rgb(img)
-         print(rgb_img)
+        print(rgb_img)
         cv2.imwrite('eval/%s.png' % name ,rgb_img)
        
     def train(self):
