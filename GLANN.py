@@ -187,8 +187,9 @@ class GLANN(op_base):
         return update_op, gen_op
     def make_img(self,img,name):
         rgb_img = float_rgb(img)
+         print(rgb_img)
         cv2.imwrite('eval/%s.png' % name ,rgb_img)
-
+       
     def train(self):
         self.input_image = tf.placeholder(tf.float32, shape = [1,self.image_height,self.image_weight,self.image_channels] )
         # self.input_z = tf.placeholder(tf.float32, shape = [self.imle_deep,1000] )
