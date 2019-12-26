@@ -52,11 +52,11 @@ class GLANN(op_base):
             # x = ly.batch_normal(x, name='e_bn_3', is_training=is_training)
             # x = ly.relu(x)
 
-            x = ly.deconv2d(x,hidden_num * 4,name = 'g_deconv2d_0') ### 8,8, 128
+            x = ly.deconv2d(x,hidden_num * 4,name = 'g_deconv2d_0') ### 8,8, 256
             x = ly.batch_normal(x,name = 'g_deconv_bn_0',is_training = is_training)
             x = ly.relu(x)
 
-            x = ly.deconv2d(x,hidden_num * 2,name = 'g_deconv2d_1') ### 16,16, 64
+            x = ly.deconv2d(x,hidden_num * 2,name = 'g_deconv2d_1') ### 16,16, 128
             x = ly.batch_normal(x,name = 'g_deconv_bn_1',is_training = is_training)
             x = ly.relu(x)
 
@@ -64,7 +64,7 @@ class GLANN(op_base):
             x = ly.batch_normal(x,name = 'g_deconv_bn_2',is_training = is_training)
             x = ly.relu(x)
 
-            x = ly.deconv2d(x, 3, name = 'g_deconv2d_3') ### 64,64, 64
+            x = ly.deconv2d(x, 3, name = 'g_deconv2d_3') ### 64,64, 3
             x = ly.batch_normal(x,name = 'g_deconv_bn_3',is_training = is_training)
             x = tf.nn.tanh(x)
 
@@ -151,11 +151,11 @@ class GLANN(op_base):
         # tf.get_variable('noise',shape = [self.imle_deep,1000],initializer=tf.random_normal_initializer(mean=0.,stddev = 0.02))
 
         self.z = self.normalizer(self.input_z)  ### 16, 1000      normalied
-        self.fake_img = self.encoder(self.z) 
+        fake_img = self.encoder(self.z) 
         mix_input_image = tf.concat( [ self.input_image for i in range(self.imle_deep)], axis = 0 )
 
         #### local moment loss
-        moment_loss = self.local_moment_loss(self.fake_img, mix_input_image)
+        moment_loss = self.local_moment_loss(fake_img, mix_input_image)
         imle_z_grad = tf.gradients(moment_loss,self.input_z)[0] ### 16, 1000
 
         update_input = self.input_z - self.z_lr * imle_z_grad
@@ -173,9 +173,11 @@ class GLANN(op_base):
         # imle_choose_img = tf.expand_dims(fake_img[imle_z_index],axis = 0)
 
         #### perceptual_loss
-        perceptual_loss = self.perceptual_loss(self.fake_img, self.input_image)
+        perceptual_loss = self.perceptual_loss(fake_img, self.input_image)
+        min_index = tf.argmin(perceptual_loss)
         imle_gen_loss = tf.reduce_min(perceptual_loss)
         imle_gen_mean_loss = tf.reduce_mean(perceptual_loss)
+        self.fake_img = fake_img[min_index]
 
         self.summaries.append(tf.summary.scalar('g_min_loss',imle_gen_loss)) 
         self.summaries.append(tf.summary.scalar('g_mean_loss',imle_gen_mean_loss)) 
@@ -187,7 +189,6 @@ class GLANN(op_base):
         return update_op, gen_op
     def make_img(self,img,name):
         rgb_img = float_rgb(img)
-        print(rgb_img)
         cv2.imwrite('eval/%s.png' % name ,rgb_img)
        
     def train(self):
@@ -226,6 +227,7 @@ class GLANN(op_base):
 
                     if(_ % 100 == 0):
                         print('write img %s' % _)
+                        print(_img.shape)
                         self.make_img(_img,_)
 
                 
