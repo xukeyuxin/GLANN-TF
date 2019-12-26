@@ -211,14 +211,16 @@ class GLANN(op_base):
                 _input_z = self.xavier_initializer( shape = [self.imle_deep,1000] )
                 _init_op = self.init_z(_input_z)
                 self.sess.run(_init_op)
-                for _ in range(100):
+                for _ in range(100000):
                     
                     _feed_dict = {self.input_image:_img_content}
                     _z_update, _summary_str = self.sess.run([z_update,summary_op], feed_dict = _feed_dict)
-                    summary_writer.add_summary(_summary_str,i)
+                    summary_writer.add_summary(_summary_str,_)
 
                     _g_op,_summary_op = self.sess.run([gen_opt,summary_op], feed_dict = _feed_dict)
-                    summary_writer.add_summary(_summary_str,i)
+                    summary_writer.add_summary(_summary_str,_)
+                
+                return 
 
             
 
