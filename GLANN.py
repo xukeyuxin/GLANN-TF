@@ -151,11 +151,11 @@ class GLANN(op_base):
         # tf.get_variable('noise',shape = [self.imle_deep,1000],initializer=tf.random_normal_initializer(mean=0.,stddev = 0.02))
 
         self.z = self.normalizer(self.input_z)  ### 16, 1000      normalied
-        fake_img = self.encoder(self.z) 
+        self.fake_img = self.encoder(self.z) 
         mix_input_image = tf.concat( [ self.input_image for i in range(self.imle_deep)], axis = 0 )
 
         #### local moment loss
-        moment_loss = self.local_moment_loss(fake_img, mix_input_image)
+        moment_loss = self.local_moment_loss(self.fake_img, mix_input_image)
         imle_z_grad = tf.gradients(moment_loss,self.input_z)[0] ### 16, 1000
 
         update_input = self.input_z - self.z_lr * imle_z_grad
@@ -173,7 +173,7 @@ class GLANN(op_base):
         # imle_choose_img = tf.expand_dims(fake_img[imle_z_index],axis = 0)
 
         #### perceptual_loss
-        perceptual_loss = self.perceptual_loss(fake_img, self.input_image)
+        perceptual_loss = self.perceptual_loss(self.fake_img, self.input_image)
         imle_gen_loss = tf.reduce_min(perceptual_loss)
         imle_gen_mean_loss = tf.reduce_mean(perceptual_loss)
 
@@ -185,6 +185,9 @@ class GLANN(op_base):
         gen_op = g_opt.apply_gradients(gen_grad)
 
         return update_op, gen_op
+    def make_img(self,img,name):
+        rgb_img = float_rgb(img)
+        cv2.imwrite('eval/%s.png' % name ,rgb_img)
 
     def train(self):
         self.input_image = tf.placeholder(tf.float32, shape = [1,self.image_height,self.image_weight,self.image_channels] )
@@ -217,8 +220,13 @@ class GLANN(op_base):
                     _z_update, _summary_str = self.sess.run([z_update,summary_op], feed_dict = _feed_dict)
                     summary_writer.add_summary(_summary_str,_)
 
-                    _g_op,_summary_op = self.sess.run([gen_opt,summary_op], feed_dict = _feed_dict)
+                    _g_op,_img,_summary_op = self.sess.run([gen_opt,self.fake_img,summary_op], feed_dict = _feed_dict)
                     summary_writer.add_summary(_summary_str,_)
+
+                    if(_ % 100 == 0):
+                        print('write img %s' % _)
+                        self.make_img(_img,_)
+
                 
                 return 
 
