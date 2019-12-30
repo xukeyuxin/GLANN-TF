@@ -7,6 +7,7 @@ from op_base import op_base
 from util import *
 from functools import reduce
 import math
+import pickle
 
 class GLANN(op_base):
     def __init__(self,args,sess):
@@ -15,6 +16,7 @@ class GLANN(op_base):
         self.sess_arg = tf.Session()
         self.summaries = []
         self.vgg = VGG19()
+        
         # self.train_data_generater = load_image()
 
     def get_vars(self,name):
@@ -182,18 +184,26 @@ class GLANN(op_base):
         imle_gen_loss = tf.reduce_min(perceptual_loss) + _tv_loss
         # imle_gen_mean_loss = tf.reduce_mean(perceptual_loss)
         self.fake_img = fake_img[min_index]
+        self.choose_noise = self.z[min_index]
         self.summaries.append(tf.summary.scalar('g_min_loss',imle_gen_loss)) 
+        self.gen_saver = tf.train.Saver(var_list=self.get_vars('generate_img'))
         # self.summaries.append(tf.summary.scalar('g_mean_loss',imle_gen_mean_loss)) 
 
         gen_grad = g_opt.compute_gradients(imle_gen_loss,var_list = self.get_vars('generate_img') )
         ### clip gridents
         gen_op = g_opt.apply_gradients(gen_grad)
-
         return update_op, gen_op
+
     def make_img(self,img,name):
         rgb_img = float_rgb(img)
-        cv2.imwrite('eval/%s.png' % name ,rgb_img)
-       
+        cv2.imwrite('eval/%s' % name ,rgb_img)
+
+    def write_pickle(self, name, choose_z):
+        pickle_write_path = os.path.join('result','%s.pickle' % name)
+        with open(pickle_write_path,'wb') as f:
+            f.write(pickle.dumps(choose_z))
+    def save_gen(self,index):
+        self.gen_saver.save(self.sess,os.path.join('model','generator'))
     def train(self):
         self.input_image = tf.placeholder(tf.float32, shape = [1,self.image_height,self.image_weight,self.image_channels] )
         # self.input_z = tf.placeholder(tf.float32, shape = [self.imle_deep,1000] )
@@ -209,32 +219,31 @@ class GLANN(op_base):
         summary_writer = tf.summary.FileWriter(self.summary_dir, self.sess.graph)
         summary_op = tf.summary.merge(self.summaries)
 
-        for _epoch in range(100):
-            self.train_data_generater = load_image()
-            for i in range(1914):
-                img_content, name = next(self.train_data_generater)
-                _img_content = np.expand_dims(img_content,axis = 0)
+        self.train_data_generater = load_image()
+        for i in range(1914):
+            img_content, name = next(self.train_data_generater)
+            _img_content = np.expand_dims(img_content,axis = 0)
 
-                ### xavier init
-                _input_z = self.xavier_initializer( shape = [self.imle_deep,1000] )
-                _init_op = self.init_z(_input_z)
-                self.sess.run(_init_op)
-                for _ in range(100000):
-                    
-                    _feed_dict = {self.input_image:_img_content}
-                    _z_update, _summary_str = self.sess.run([z_update,summary_op], feed_dict = _feed_dict)
-                    summary_writer.add_summary(_summary_str,_)
-
-                    _g_op,_img,_summary_op = self.sess.run([gen_opt,self.fake_img,summary_op], feed_dict = _feed_dict)
-                    summary_writer.add_summary(_summary_str,_)
-
-                    if(_ % 100 == 0):
-                        print('write img %s' % _)
-                        print(_img.shape)
-                        self.make_img(_img,_)
-
+            ### xavier init
+            _input_z = self.xavier_initializer( shape = [self.imle_deep,1000] )
+            _init_op = self.init_z(_input_z)
+            self.sess.run(_init_op)
+            for _ in range(5000):
                 
-                return 
+                _feed_dict = {self.input_image:_img_content}
+                _z_update, _summary_str = self.sess.run([z_update,summary_op], feed_dict = _feed_dict)
+                summary_writer.add_summary(_summary_str,_)
+
+                _g_op,choose_z,_img,_summary_op = self.sess.run([gen_opt,self.choose_noise,self.fake_img,summary_op], feed_dict = _feed_dict)
+                summary_writer.add_summary(_summary_str,_)
+
+                if(_ % 2 == 0):
+                    print('write img %s' % _)
+                    self.make_img(_img,name)
+                    self.save_gen(i)
+                    self.write_pickle(name,choose_z)
+            
+            print('finish %s' % i)
 
             
 
