@@ -202,8 +202,10 @@ class GLANN(op_base):
         pickle_write_path = os.path.join('result','%s.pickle' % name)
         with open(pickle_write_path,'wb') as f:
             f.write(pickle.dumps(choose_z))
-    def save_gen(self,index):
+    def save_gen(self):
         self.gen_saver.save(self.sess,os.path.join('model','generator'))
+    def restore_gen(self):
+        self.gen_saver.restore(self.sess,os.path.join('model','generator'))
     def train(self):
         self.input_image = tf.placeholder(tf.float32, shape = [1,self.image_height,self.image_weight,self.image_channels] )
         # self.input_z = tf.placeholder(tf.float32, shape = [self.imle_deep,1000] )
@@ -214,7 +216,8 @@ class GLANN(op_base):
 
         ## init
         self.sess.run(tf.global_variables_initializer())
-
+        self.restore_gen()
+        
         ## summary init
         summary_writer = tf.summary.FileWriter(self.summary_dir, self.sess.graph)
         summary_op = tf.summary.merge(self.summaries)
@@ -228,7 +231,7 @@ class GLANN(op_base):
             _input_z = self.xavier_initializer( shape = [self.imle_deep,1000] )
             _init_op = self.init_z(_input_z)
             self.sess.run(_init_op)
-            for _ in range(5000):
+            for _ in range(500):
                 
                 _feed_dict = {self.input_image:_img_content}
                 _z_update, _summary_str = self.sess.run([z_update,summary_op], feed_dict = _feed_dict)
@@ -237,12 +240,11 @@ class GLANN(op_base):
                 _g_op,choose_z,_img,_summary_op = self.sess.run([gen_opt,self.choose_noise,self.fake_img,summary_op], feed_dict = _feed_dict)
                 summary_writer.add_summary(_summary_str,_)
 
-                if(_ % 500 == 0):
-                    print('write img %s' % _)
-                    self.make_img(_img,name)
-                    self.save_gen(i)
-                    self.write_pickle(name,choose_z)
-            
+            print('write img %s' % _)
+            self.make_img(_img,name)
+            self.save_gen()
+            self.write_pickle(name,choose_z)
+    
             print('finish %s' % i)
 
             
