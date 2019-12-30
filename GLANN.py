@@ -87,14 +87,16 @@ class GLANN(op_base):
         content_loss = tf.reduce_sum(tf.square(content_distance),axis = [1,2,3]) / 2. ## imle_deep
 
         ### style
-        gen_conv3_style = gram(self.vgg(gen,conv3 = True)) ## imle_deep, c, c
-        origin_conv3_style = gram(self.vgg(origin,conv3 = True)) ## 1, c, c
-        mix_origin_conv3_style = tf.concat( [ origin_conv3_style for i in range(_imle_deep) ], axis = 0 ) ## imle_deep, c, c
-        style_distance = gen_conv3_style - mix_origin_conv3_style ## imle_deep, c, c
+        def cell_style_distance(fake,origin):
+            origin = tf.concat( [ origin for _ in range(self.imle_deep) ], axis = 0 )
+            _style_distance = fake - origin
+            _distance_loss = tf.reduce_sum(tf.square(_style_distance),axis = [1,2])
+            return _distance_loss
+        gen_conv_style = gram(self.vgg(gen,include_all = True)) ## 3 , imle_deep, c, c
+        origin_conv_style = gram(self.vgg(origin,include_all = True)) ## 3, 1, c, c
         
-        style_loss = tf.reduce_sum(tf.square(style_distance),axis = [1,2]) ## imle_deep
-
-        return alpha1 * content_loss + alpha2 * style_loss
+        mix_style_loss = tf.reduce_sum( [ cell_style_distance(item_fake, item_origin) for item_fake, item_origin in zip(gen_conv_style, origin_conv_style) ] )
+        return alpha1 * content_loss + alpha2 * mix_style_loss
 
     def local_moment_loss(self, pred, gt):
         with tf.name_scope('local_moment_loss'):
@@ -180,7 +182,6 @@ class GLANN(op_base):
         imle_gen_loss = tf.reduce_min(perceptual_loss) + _tv_loss
         # imle_gen_mean_loss = tf.reduce_mean(perceptual_loss)
         self.fake_img = fake_img[min_index]
-
         self.summaries.append(tf.summary.scalar('g_min_loss',imle_gen_loss)) 
         # self.summaries.append(tf.summary.scalar('g_mean_loss',imle_gen_mean_loss)) 
 

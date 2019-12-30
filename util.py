@@ -7,15 +7,19 @@ import tensorflow as tf
 
 
 def gram(layer):
-    shape = tf.shape(layer)
-    num_images = shape[0]
-    width = shape[1]
-    height = shape[2]
-    num_filters = shape[3]
-    filters = tf.reshape(layer, tf.stack([num_images, -1, num_filters]))
-    grams = tf.matmul(filters, filters, transpose_a=True) / tf.to_float(width * height * num_filters)
-
-    return grams 
+    def _gram(input):
+        shape = tf.shape(input)
+        num_images = shape[0]
+        width = shape[1]
+        height = shape[2]
+        num_filters = shape[3]
+        filters = tf.reshape(input, tf.stack([num_images, -1, num_filters]))
+        grams = tf.matmul(filters, filters, transpose_a=True) / tf.to_float(width * height * num_filters)
+        return grams
+    if(isinstance(layer,list)):
+        return [ _gram(_input) for _input in layer ]
+    else:
+        return _gram(layer) 
 
 def rgb_float(image_content):
     return image_content / 127.5 - 1
