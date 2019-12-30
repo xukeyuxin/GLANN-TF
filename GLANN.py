@@ -155,32 +155,34 @@ class GLANN(op_base):
         mix_input_image = tf.concat( [ self.input_image for i in range(self.imle_deep)], axis = 0 )
 
         #### local moment loss
-        moment_loss = self.local_moment_loss(fake_img, mix_input_image)
-        imle_z_grad = tf.gradients(moment_loss,self.input_z)[0] ### 16, 1000
-
-        update_input = self.input_z - self.z_lr * imle_z_grad
-        update_op = tf.assign(self.input_z, update_input) 
+        # moment_loss = self.local_moment_loss(fake_img, mix_input_image)
+        # imle_z_grad = tf.gradients(moment_loss,self.input_z)[0] ### 16, 1000
         
         #### l2 loss
-        # img_distance = fake_img - mix_input_image
-        # l2_loss = tf.reduce_sum(tf.square(img_distance),axis = [1,2,3]) / 2.
+        img_distance = fake_img - mix_input_image
+        l2_loss = tf.reduce_sum(tf.square(img_distance),axis = [1,2,3]) / 2.
+        imle_z_grad = tf.gradients(l2_loss,self.input_z)[0] ### 16, 1000
         # imle_z_index = tf.argmin(l2_loss)
         # imle_z_loss = tf.reduce_min(l2_loss)
         # imle_z_mean_loss = tf.reduce_mean(l2_loss)
-        # self.summaries.append(tf.summary.scalar('z_min_loss',imle_z_loss)) 
-        # self.summaries.append(tf.summary.scalar('z_mean_loss',imle_z_loss)) 
         # imle_choose_z = self.z[imle_z_index]
         # imle_choose_img = tf.expand_dims(fake_img[imle_z_index],axis = 0)
+
+        update_input = self.input_z - self.z_lr * imle_z_grad
+        update_op = tf.assign(self.input_z, update_input) 
+
+        #### tv loss 
+        _tv_loss = 0.001 * tv_loss(fake_img)
 
         #### perceptual_loss
         perceptual_loss = self.perceptual_loss(fake_img, self.input_image)
         min_index = tf.argmin(perceptual_loss)
-        imle_gen_loss = tf.reduce_min(perceptual_loss)
-        imle_gen_mean_loss = tf.reduce_mean(perceptual_loss)
+        imle_gen_loss = tf.reduce_min(perceptual_loss) + _tv_loss
+        # imle_gen_mean_loss = tf.reduce_mean(perceptual_loss)
         self.fake_img = fake_img[min_index]
 
         self.summaries.append(tf.summary.scalar('g_min_loss',imle_gen_loss)) 
-        self.summaries.append(tf.summary.scalar('g_mean_loss',imle_gen_mean_loss)) 
+        # self.summaries.append(tf.summary.scalar('g_mean_loss',imle_gen_mean_loss)) 
 
         gen_grad = g_opt.compute_gradients(imle_gen_loss,var_list = self.get_vars('generate_img') )
         ### clip gridents

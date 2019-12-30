@@ -65,4 +65,10 @@ def make_image(input,name_list):
         cv2.imwrite(os.path.join(write_dir,name_list[index].decode()), cell)
         index += 1
 
+def tv_loss(input_t):
+
+    temp1 = tf.concat( [ input_t[:,1:,:,:], tf.expand_dims(input_t[:,-1,:,:],axis = 1)],axis = 1 )
+    temp2 = tf.concat( [ input_t[:,:,1:,:], tf.expand_dims(input_t[:,:,-1,:],axis = 2)],axis = 2 )
+    temp = (input_t - temp1)**2 +  (input_t - temp2)**2
+    return tf.reduce_sum(temp)
 
