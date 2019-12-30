@@ -4,7 +4,7 @@ from tqdm import tqdm
 import cv2
 import numpy as np
 import tensorflow as tf
-
+import random
 
 def gram(layer):
     def _gram(input):
@@ -37,6 +37,7 @@ def load_image(eval = False):
         # image_dir_name = os.path.join('data','random_faces')
         image_dir_name = os.path.join('data','random_faces')
     image_list = os.listdir(image_dir_name)
+    random.shuffle(image_list)
     image_content = []
     image_name = []
     image_n = []
