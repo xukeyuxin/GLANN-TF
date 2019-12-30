@@ -237,7 +237,7 @@ class GLANN(op_base):
                 _g_op,choose_z,_img,_summary_op = self.sess.run([gen_opt,self.choose_noise,self.fake_img,summary_op], feed_dict = _feed_dict)
                 summary_writer.add_summary(_summary_str,_)
 
-                if(_ % 2 == 0):
+                if(_ % 500 == 0):
                     print('write img %s' % _)
                     self.make_img(_img,name)
                     self.save_gen(i)
