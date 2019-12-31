@@ -176,7 +176,7 @@ class GLANN(op_base):
         update_op = tf.assign(self.input_z, update_input) 
 
         #### tv loss 
-        _tv_loss = 0.001 * tv_loss(fake_img)
+        _tv_loss = 0.0001 * tv_loss(fake_img)
 
         #### perceptual_loss
         perceptual_loss = self.perceptual_loss(fake_img, self.input_image)
