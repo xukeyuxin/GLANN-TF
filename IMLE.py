@@ -169,10 +169,10 @@ class IMLE(op_base):
         with open(pickle_write_path,'wb') as f:
             f.write(pickle.dumps(choose_z))
     def save_gen(self):
-        self.gen_saver.save(self.sess,os.path.join('model','generator'))
+        self.gen_saver.save(self.sess,os.path.join('imle_model','generator'))
     def restore_gen(self):
-        if(os.listdir('model')):
-            self.gen_saver.restore(self.sess,os.path.join('model','generator'))
+        if(os.listdir('imle_model')):
+            self.gen_saver.restore(self.sess,os.path.join('imle_model','generator'))
     def train(self):
         self.input_image = tf.placeholder(tf.float32, shape = [1,self.image_height,self.image_weight,self.image_channels] )
         self.input_z = tf.placeholder(tf.float32, shape = [self.imle_deep,1000] ) ### 16, 1000 
