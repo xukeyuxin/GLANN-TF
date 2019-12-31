@@ -45,7 +45,7 @@ parser.add_argument("-m", "--model", type=str, default='IMLE')
 
 
 args = parser.parse_args()
-os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_num
+os.environ["CUDA_VISIBLE_DEVICES"] =  '1'
 
 
 dir_names = ['eval','logs','model','data']

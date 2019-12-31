@@ -174,8 +174,10 @@ class GLANN(op_base):
         return update_op, gen_op
 
     def make_img(self,img,name):
+        if(not os.path.exists('eval_glann')):
+            os.mkdir('eval_glann')
         rgb_img = float_rgb(img)
-        cv2.imwrite('eval/%s' % name ,rgb_img)
+        cv2.imwrite('eval_glann/%s' % name ,rgb_img)
 
     def write_pickle(self, name, choose_z):
         pickle_write_path = os.path.join('result','%s.pickle' % name)

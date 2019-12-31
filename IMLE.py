@@ -161,13 +161,11 @@ class IMLE(op_base):
         return  gen_op
 
     def make_img(self,img,name):
+        if(not os.path.exists('eval_imle')):
+            os.mkdir('eval_imle')
         rgb_img = float_rgb(img)
-        cv2.imwrite('eval/%s' % name ,rgb_img)
+        cv2.imwrite('eval_imle/%s' % name ,rgb_img)
 
-    def write_pickle(self, name, choose_z):
-        pickle_write_path = os.path.join('result','%s.pickle' % name)
-        with open(pickle_write_path,'wb') as f:
-            f.write(pickle.dumps(choose_z))
     def save_gen(self):
         self.gen_saver.save(self.sess,os.path.join('imle_model','generator'))
     def restore_gen(self):
