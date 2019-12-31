@@ -3,5 +3,5 @@
 /data/random_faces_1000
 /logs/*
 /model/*
-/old_model/
+/GLANN_generate_model/
 /eval/*

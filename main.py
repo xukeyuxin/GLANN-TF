@@ -1,5 +1,6 @@
 import tensorflow as tf
 from GLANN import GLANN
+from IMLE import IMLE
 import argparse
 import os
 import sys
@@ -39,6 +40,7 @@ parser.add_argument("-l", "--lr", type=float, default=1e-4)
 
 
 parser.add_argument("-ac", "--action", type=str, default='train')
+parser.add_argument("-m", "--model", type=str, default='IMLE')
 
 
 
@@ -56,7 +58,12 @@ if __name__ == '__main__':
     config.gpu_options.allow_growth = True
 
     with tf.Session(config = config) as sess:
-        model = GLANN(args,sess)
+        if(args.model == 'IMLE'):
+            model = IMLE(args,sess)
+        elif(args.model == 'GLANN'):
+            model = GLANN(args,sess)
+        elif(args.model == 'GLO'):
+            pass
         if(args.action == 'train'):
             model.train()
         elif(args.action == 'test'):

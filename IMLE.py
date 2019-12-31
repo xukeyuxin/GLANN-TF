@@ -9,7 +9,7 @@ from functools import reduce
 import math
 import pickle
 
-class GLANN(op_base):
+class IMLE(op_base):
     def __init__(self,args,sess):
         op_base.__init__(self,args)
         self.sess = sess
@@ -129,11 +129,10 @@ class GLANN(op_base):
     def init_z(self,init_code):
         init_op = tf.assign(self.input_z,init_code)
         return init_op
-    def glann_graph(self,g_opt):
+    def imle_graph(self,g_opt):
         
         # tf.get_variable('noise',shape = [self.imle_deep,1000],initializer=tf.random_normal_initializer(mean=0.,stddev = 0.02))
-
-        self.z = self.normalizer(self.input_z)  ### 16, 1000      normalied
+        self.z = self.normalizer(self.input_z)
         fake_img = self.encoder(self.z) 
         mix_input_image = tf.concat( [ self.input_image for i in range(self.imle_deep)], axis = 0 )
 
@@ -144,34 +143,22 @@ class GLANN(op_base):
         #### l2 loss
         img_distance = fake_img - mix_input_image
         l2_loss = tf.reduce_sum(tf.square(img_distance),axis = [1,2,3]) / 2.
-        imle_z_grad = tf.gradients(l2_loss,self.input_z)[0] ### 16, 1000
-        # imle_z_index = tf.argmin(l2_loss)
-        # imle_z_loss = tf.reduce_min(l2_loss)
-        # imle_z_mean_loss = tf.reduce_mean(l2_loss)
-        # imle_choose_z = self.z[imle_z_index]
-        # imle_choose_img = tf.expand_dims(fake_img[imle_z_index],axis = 0)
+        min_index = tf.argmin(l2_loss)
 
-        update_input = self.input_z - self.z_lr * imle_z_grad
-        update_op = tf.assign(self.input_z, update_input) 
-
-        #### tv loss 
-        _tv_loss = 0.0005 * tv_loss(fake_img)
-
-        #### perceptual_loss
-        perceptual_loss = self.perceptual_loss(fake_img, self.input_image)
-        min_index = tf.argmin(perceptual_loss)
-        imle_gen_loss = tf.reduce_min(perceptual_loss) + _tv_loss
-        # imle_gen_mean_loss = tf.reduce_mean(perceptual_loss)
         self.fake_img = fake_img[min_index]
         self.choose_noise = self.z[min_index]
+        #### tv loss 
+        _tv_loss = 0.0001 * tv_loss( tf.expand_dims(self.fake_img,axis = 0) )
+        imle_gen_loss = tf.reduce_min(l2_loss) + _tv_loss
+
         self.summaries.append(tf.summary.scalar('g_min_loss',imle_gen_loss)) 
         self.gen_saver = tf.train.Saver(var_list=self.get_vars('generate_img'))
-        # self.summaries.append(tf.summary.scalar('g_mean_loss',imle_gen_mean_loss)) 
 
         gen_grad = g_opt.compute_gradients(imle_gen_loss,var_list = self.get_vars('generate_img') )
         ### clip gridents
         gen_op = g_opt.apply_gradients(gen_grad)
-        return update_op, gen_op
+
+        return  gen_op
 
     def make_img(self,img,name):
         rgb_img = float_rgb(img)
@@ -188,11 +175,9 @@ class GLANN(op_base):
             self.gen_saver.restore(self.sess,os.path.join('model','generator'))
     def train(self):
         self.input_image = tf.placeholder(tf.float32, shape = [1,self.image_height,self.image_weight,self.image_channels] )
-        # self.input_z = tf.placeholder(tf.float32, shape = [self.imle_deep,1000] )
-        self.input_z = tf.get_variable('noise',shape = [self.imle_deep,1000],initializer = tf.random_normal_initializer(stddev = 0.02))
-
+        self.input_z = tf.placeholder(tf.float32, shape = [self.imle_deep,1000] ) ### 16, 1000 
         gen_optimizer = tf.train.AdamOptimizer(self.lr)
-        z_update, gen_opt = self.glann_graph(gen_optimizer)
+        gen_opt = self.imle_graph(gen_optimizer)
 
         ## init
         self.sess.run(tf.global_variables_initializer())
@@ -207,24 +192,14 @@ class GLANN(op_base):
             img_content, name = next(self.train_data_generater)
             _img_content = np.expand_dims(img_content,axis = 0)
 
-            ### xavier init
-            _input_z = self.xavier_initializer( shape = [self.imle_deep,1000] )
-            _init_op = self.init_z(_input_z)
-            self.sess.run(_init_op)
             for _ in range(500):
-                
-                _feed_dict = {self.input_image:_img_content}
-                _z_update, _summary_str = self.sess.run([z_update,summary_op], feed_dict = _feed_dict)
-                summary_writer.add_summary(_summary_str,_)
-
-                _g_op,choose_z,_img,_summary_op = self.sess.run([gen_opt,self.choose_noise,self.fake_img,summary_op], feed_dict = _feed_dict)
-                summary_writer.add_summary(_summary_str,_)
+                init_noise = np.random.normal(scale=0.02,size = [self.imle_deep,1000])
+                _feed_dict = {self.input_image:_img_content,self.input_z:init_noise}
+                _g_op,_img,_summary_op = self.sess.run([gen_opt,self.fake_img,summary_op], feed_dict = _feed_dict)
 
             print('write img %s' % _)
             self.make_img(_img,name)
             self.save_gen()
-            self.write_pickle(name,choose_z)
-    
             print('finish %s' % i)
 
             
