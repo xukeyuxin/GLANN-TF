@@ -16,6 +16,7 @@ class GAN(op_base):
         self.sess_arg = tf.Session()
         self.summaries = []
         self.vgg = VGG19()
+        self.saver = tf.train.Saver()
         self.model_path = os.path.join('gan_result','gan_model')
         self.code_path = os.path.join('gan_result','gan_encoder_code')
         self.eval_path = os.path.join('gan_result','gan_eval')
@@ -182,7 +183,7 @@ class GAN(op_base):
             _train_op,_summary_str = self.sess.run([train_op,summary_op], feed_dict = _feed_dict)
             summary_writer.add_summary(_summary_str,step)
 
-            self.saver = tf.train.Saver()
+            
             if(step % 500 == 0):
                 self.saver.save(self.sess,os.path.join(self.model_path,'gan_%s' % step))
                 print('sucess save gan')
