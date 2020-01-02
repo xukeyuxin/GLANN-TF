@@ -147,9 +147,9 @@ class GAN(op_base):
         with open(pickle_write_path,'wb') as f:
             f.write(pickle.dumps(choose_z))
 
-    def restore_gen(self):
+    def restore_gen(self,index):
         if( os.path.exists(self.model_path) and os.listdir(self.model_path)):
-            self.saver.restore(self.sess,os.path.join(self.model_path,'generator'))
+            self.saver.restore(self.sess,os.path.join(self.model_path,'generator_%s' % index))
     def train(self,is_training = True):
         self.input_image = tf.placeholder(tf.float32, shape = [self.batch_size,self.image_height,self.image_weight,self.image_channels] )
         self.input_z = tf.get_variable('noise',shape = [self.batch_size,1000],initializer = tf.random_normal_initializer(stddev = 0.02))
@@ -175,7 +175,11 @@ class GAN(op_base):
                 img_content, name = next(self.train_data_generater)
                 step += 1
             except StopIteration:
-                self.train_data_generater = load_image(eval = False)
+                if(is_training):
+                    self.train_data_generater = load_image(eval = False)
+                else:
+                    print('finish eval')
+                    return 
             
             ### with batch_size == 1
             _img_content = np.expand_dims(img_content,axis = 0)
@@ -192,7 +196,7 @@ class GAN(op_base):
                     self.saver.save(self.sess,os.path.join(self.model_path,'gan_%s' % step))
                     print('sucess save gan')
             else:
-                self.restore_gen()
+                self.restore_gen(index = 'gan_16500')
                 _img = self.sess.run(self.fake_img,feed_dict = _feed_dict)
                 self.make_img(_img,name)
 
