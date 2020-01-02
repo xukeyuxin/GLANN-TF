@@ -159,7 +159,7 @@ class GLANN(op_base):
         update_op = tf.assign(self.input_z, update_input) 
 
         #### tv loss 
-        _tv_loss = 0.0005 * tv_loss(fake_img)
+        _tv_loss = 0.00001 * tv_loss(fake_img)
 
         #### perceptual_loss
         perceptual_loss = self.perceptual_loss(fake_img, self.input_image)
@@ -222,7 +222,7 @@ class GLANN(op_base):
             _input_z = self.xavier_initializer( shape = [self.imle_deep,1000] )
             _init_op = self.init_z(_input_z)
             self.sess.run(_init_op)
-            for _ in range(500):
+            for _ in range(50):
                 
                 _feed_dict = {self.input_image:_img_content}
                 _z_update, _summary_str = self.sess.run([z_update,summary_op], feed_dict = _feed_dict)
