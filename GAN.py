@@ -149,7 +149,7 @@ class GAN(op_base):
 
     def restore_gen(self):
         if( os.path.exists(self.model_path) and os.listdir(self.model_path)):
-            self.gen_saver.restore(self.sess,os.path.join(self.model_path,'generator'))
+            self.saver.restore(self.sess,os.path.join(self.model_path,'generator'))
     def train(self,is_training = True):
         self.input_image = tf.placeholder(tf.float32, shape = [self.batch_size,self.image_height,self.image_weight,self.image_channels] )
         self.input_z = tf.get_variable('noise',shape = [self.batch_size,1000],initializer = tf.random_normal_initializer(stddev = 0.02))
