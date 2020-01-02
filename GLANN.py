@@ -16,6 +16,10 @@ class GLANN(op_base):
         self.sess_arg = tf.Session()
         self.summaries = []
         self.vgg = VGG19()
+        self.model_path = os.path.join('glann_result','glann_model')
+        self.code_path = os.path.join('glann_result','glann_encoder_code')
+        self.eval_path = os.path.join('glann_result','glann_eval')
+        
         
         # self.train_data_generater = load_image()
 
@@ -29,7 +33,7 @@ class GLANN(op_base):
         else:
             return []
 
-    def encoder(self,input_z,name = 'generate_img',is_training = True):
+    def decoder(self,input_z,name = 'generate_img',is_training = True):
         hidden_num = 64
         output_dim = 64
         with tf.variable_scope(name,reuse = tf.AUTO_REUSE):
@@ -134,7 +138,7 @@ class GLANN(op_base):
         # tf.get_variable('noise',shape = [self.imle_deep,1000],initializer=tf.random_normal_initializer(mean=0.,stddev = 0.02))
 
         self.z = self.normalizer(self.input_z)  ### 16, 1000      normalied
-        fake_img = self.encoder(self.z) 
+        fake_img = self.decoder(self.z) 
         mix_input_image = tf.concat( [ self.input_image for i in range(self.imle_deep)], axis = 0 )
 
         #### local moment loss
@@ -174,20 +178,25 @@ class GLANN(op_base):
         return update_op, gen_op
 
     def make_img(self,img,name):
-        if(not os.path.exists('eval_glann')):
-            os.mkdir('eval_glann')
+        if(len(img.shape) == 4):
+            img = img[0]
         rgb_img = float_rgb(img)
-        cv2.imwrite('eval_glann/%s' % name ,rgb_img)
+        cv2.imwrite(os.path.join(self.eval_path,name) ,rgb_img)
 
     def write_pickle(self, name, choose_z):
-        pickle_write_path = os.path.join('result','%s.pickle' % name)
+        if(len(choose_z.shape) == 4):
+            choose_z = choose_z[0]
+        pickle_write_path = os.path.join(self.code_path,'%s.pickle' % name)
         with open(pickle_write_path,'wb') as f:
             f.write(pickle.dumps(choose_z))
+
     def save_gen(self):
-        self.gen_saver.save(self.sess,os.path.join('glann_model','generator'))
+        self.gen_saver.save(self.sess,os.path.join(self.model_path,'generator'))
+
     def restore_gen(self):
-        if(os.listdir('glann_model')):
-            self.gen_saver.restore(self.sess,os.path.join('glann_model','generator'))
+        if( os.path.exists(self.model_path) and os.listdir(self.model_path)):
+            self.gen_saver.restore(self.sess,os.path.join(self.model_path,'generator'))
+
     def train(self):
         self.input_image = tf.placeholder(tf.float32, shape = [1,self.image_height,self.image_weight,self.image_channels] )
         # self.input_z = tf.placeholder(tf.float32, shape = [self.imle_deep,1000] )

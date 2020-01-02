@@ -32,7 +32,7 @@ class GLO(op_base):
         else:
             return []
 
-    def encoder(self,input_z,name = 'generate_img',is_training = True):
+    def decoder(self,input_z,name = 'generate_img',is_training = True):
         hidden_num = 64
         output_dim = 64
         with tf.variable_scope(name,reuse = tf.AUTO_REUSE):
@@ -114,7 +114,7 @@ class GLO(op_base):
         # tf.get_variable('noise',shape = [self.imle_deep,1000],initializer=tf.random_normal_initializer(mean=0.,stddev = 0.02))
 
         self.z = self.normalizer(self.input_z)  ### 16, 1000      normalied
-        fake_img = self.encoder(self.z) 
+        fake_img = self.decoder(self.z) 
         mix_input_image = tf.concat( [ self.input_image for i in range(self.batch_size)], axis = 0 )
 
         ### local moment loss
@@ -151,6 +151,7 @@ class GLO(op_base):
         pickle_write_path = os.path.join(self.code_path,'%s.pickle' % name)
         with open(pickle_write_path,'wb') as f:
             f.write(pickle.dumps(choose_z))
+
     def save_gen(self):
         self.gen_saver.save(self.sess,os.path.join(self.model_path,'generator'))
     def restore_gen(self):

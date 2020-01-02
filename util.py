@@ -35,7 +35,7 @@ def load_image(eval = False):
         image_dir_name = os.path.join('data','eval_faces')
     else:
         # image_dir_name = os.path.join('data','random_faces')
-        image_dir_name = os.path.join('data','random_faces')
+        image_dir_name = os.path.join('data','random_face_30')
     image_list = os.listdir(image_dir_name)
     random.shuffle(image_list)
     image_content = []

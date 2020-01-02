@@ -16,6 +16,9 @@ class IMLE(op_base):
         self.sess_arg = tf.Session()
         self.summaries = []
         self.vgg = VGG19()
+        self.model_path = os.path.join('imle_result','imle_model')
+        self.eval_path = os.path.join('imle_result','imle_eval')
+        
         
         # self.train_data_generater = load_image()
 
@@ -29,7 +32,7 @@ class IMLE(op_base):
         else:
             return []
 
-    def encoder(self,input_z,name = 'generate_img',is_training = True):
+    def decoder(self,input_z,name = 'generate_img',is_training = True):
         hidden_num = 64
         output_dim = 64
         with tf.variable_scope(name,reuse = tf.AUTO_REUSE):
@@ -60,52 +63,6 @@ class IMLE(op_base):
         label, name = self.make_data_queue(eval = True)
         self.start(label, name,is_training = False)
 
-    def perceptual_loss(self, gen, origin):
-        alpha1 = 1.
-        alpha2 = 1.
-        _imle_deep = gen.get_shape().as_list()[0]
-        ### content
-        gen_conv3_content = self.vgg(gen,conv3 = True) ## imle_deep, h,w,c
-        origin_conv3_content = self.vgg(origin,conv3 = True)  ## 1, h,w,c
-        mix_origin_conv3_content = tf.concat( [ origin_conv3_content for i in range(_imle_deep) ], axis = 0 ) ## imle_deep, h,w,c
-        content_distance = gen_conv3_content - mix_origin_conv3_content
-        content_loss = tf.reduce_sum(tf.square(content_distance),axis = [1,2,3]) / 2. ## imle_deep
-
-        ### style
-        def cell_style_distance(fake,origin):
-            origin = tf.concat( [ origin for _ in range(self.imle_deep) ], axis = 0 )
-            _style_distance = fake - origin
-            _distance_loss = tf.reduce_sum(tf.square(_style_distance),axis = [1,2])
-            return _distance_loss
-        gen_conv_style = gram(self.vgg(gen,include_all = True)) ## 3 , imle_deep, c, c
-        origin_conv_style = gram(self.vgg(origin,include_all = True)) ## 3, 1, c, c
-        
-        mix_style_loss = tf.reduce_sum( [ cell_style_distance(item_fake, item_origin) for item_fake, item_origin in zip(gen_conv_style, origin_conv_style) ] )
-        return alpha1 * content_loss + alpha2 * mix_style_loss
-
-    def local_moment_loss(self, pred, gt):
-        with tf.name_scope('local_moment_loss'):
-
-            ksz, kst = 4, 2
-            local_patch = tf.ones((ksz, ksz, 1, 1))
-            c = pred.get_shape()[-1]
-
-            # Normalize by kernel size
-            pr_mean = tf.concat([tf.nn.conv2d(x, local_patch, strides=[1, kst, kst, 1], padding='VALID') for x in tf.split(pred, c, axis=3)], axis=3)
-            pr_var = tf.concat([tf.nn.conv2d(tf.square(x), local_patch, strides=[1, kst, kst, 1], padding='VALID') for x in tf.split(pred, c, axis=3)], axis=3)
-            pr_var = (pr_var - tf.square(pr_mean)/(ksz**2)) / (ksz ** 2)
-            pr_mean = pr_mean / (ksz ** 2)
-
-            gt_mean = tf.concat([tf.nn.conv2d(x, local_patch, strides=[1, kst, kst, 1], padding='VALID') for x in tf.split(gt, c, axis=3)], axis=3)
-            gt_var = tf.concat([tf.nn.conv2d(tf.square(x), local_patch, strides=[1, kst, kst, 1], padding='VALID') for x in tf.split(gt, c, axis=3)], axis=3)
-            gt_var = (gt_var - tf.square(gt_mean)/(ksz**2)) / (ksz ** 2)
-            gt_mean = gt_mean / (ksz ** 2)
-
-            # scaling by local patch size
-            local_mean_loss = tf.reduce_mean(tf.abs(pr_mean - gt_mean), axis = [1,2,3])
-            local_var_loss = tf.reduce_mean(tf.abs(pr_var - gt_var), axis = [1,2,3])
-        return local_mean_loss + local_var_loss
-
     def normalizer(self,input,name = 'generator_z'):
         def _normal(item):
             _normal_weight = tf.reduce_sum(tf.square(input))
@@ -130,16 +87,10 @@ class IMLE(op_base):
         init_op = tf.assign(self.input_z,init_code)
         return init_op
     def imle_graph(self,g_opt):
-        
-        # tf.get_variable('noise',shape = [self.imle_deep,1000],initializer=tf.random_normal_initializer(mean=0.,stddev = 0.02))
         self.z = self.normalizer(self.input_z)
-        fake_img = self.encoder(self.z) 
+        fake_img = self.decoder(self.z) 
         mix_input_image = tf.concat( [ self.input_image for i in range(self.imle_deep)], axis = 0 )
 
-        #### local moment loss
-        # moment_loss = self.local_moment_loss(fake_img, mix_input_image)
-        # imle_z_grad = tf.gradients(moment_loss,self.input_z)[0] ### 16, 1000
-        
         #### l2 loss
         img_distance = fake_img - mix_input_image
         l2_loss = tf.reduce_sum(tf.square(img_distance),axis = [1,2,3]) / 2.
@@ -161,16 +112,18 @@ class IMLE(op_base):
         return  gen_op
 
     def make_img(self,img,name):
-        if(not os.path.exists('eval_imle')):
-            os.mkdir('eval_imle')
+        if(len(img.shape) == 4):
+            img = img[0]
         rgb_img = float_rgb(img)
-        cv2.imwrite('eval_imle/%s' % name ,rgb_img)
+        cv2.imwrite(os.path.join(self.eval_path,name) ,rgb_img)
 
     def save_gen(self):
-        self.gen_saver.save(self.sess,os.path.join('imle_model','generator'))
+        self.gen_saver.save(self.sess,os.path.join(self.model_path,'generator'))
+
     def restore_gen(self):
-        if(os.listdir('imle_model')):
-            self.gen_saver.restore(self.sess,os.path.join('imle_model','generator'))
+        if( os.path.exists(self.model_path) and os.listdir(self.model_path)):
+            self.gen_saver.restore(self.sess,os.path.join(self.model_path,'generator'))
+
     def train(self):
         self.input_image = tf.placeholder(tf.float32, shape = [1,self.image_height,self.image_weight,self.image_channels] )
         self.input_z = tf.placeholder(tf.float32, shape = [self.imle_deep,1000] ) ### 16, 1000 
