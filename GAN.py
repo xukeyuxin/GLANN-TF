@@ -16,7 +16,6 @@ class GAN(op_base):
         self.sess_arg = tf.Session()
         self.summaries = []
         self.vgg = VGG19()
-        self.saver = tf.train.Saver()
         self.model_path = os.path.join('gan_result','gan_model')
         self.code_path = os.path.join('gan_result','gan_encoder_code')
         self.eval_path = os.path.join('gan_result','gan_eval')
@@ -131,7 +130,7 @@ class GAN(op_base):
 
         dis_grad = g_opt.compute_gradients(discri_loss,var_list = self.get_vars('discriminator_img') )
         dis_op = g_opt.apply_gradients(dis_grad)
-        return tf.group(dis_op, gen_op)
+        return dis_op, gen_op
 
     def make_img(self,img,name):
         if(len(img.shape) == 4):
@@ -156,7 +155,7 @@ class GAN(op_base):
 
         gen_optimizer = tf.train.AdamOptimizer(self.lr)
         dis_optimizer = tf.train.AdamOptimizer(self.lr)
-        train_op = self.gan_graph(gen_optimizer,dis_optimizer)
+        dis_op, gen_op = self.gan_graph(gen_optimizer,dis_optimizer)
 
         ## init
         self.sess.run(tf.global_variables_initializer())
@@ -167,7 +166,7 @@ class GAN(op_base):
         summary_op = tf.summary.merge(self.summaries)
 
         self.train_data_generater = load_image(eval = False)
-
+        self.saver = tf.train.Saver()
         step = 0
         while True:
             try:
@@ -180,9 +179,11 @@ class GAN(op_base):
             _img_content = np.expand_dims(img_content,axis = 0)
             _feed_dict = {self.input_image:_img_content}
 
-            _train_op,_summary_str = self.sess.run([train_op,summary_op], feed_dict = _feed_dict)
+            _dis_op,_summary_str = self.sess.run([dis_op,summary_op], feed_dict = _feed_dict)
             summary_writer.add_summary(_summary_str,step)
 
+            _gen_op,_summary_str = self.sess.run([gen_op,summary_op], feed_dict = _feed_dict)
+            summary_writer.add_summary(_summary_str,step)
             
             if(step % 500 == 0):
                 self.saver.save(self.sess,os.path.join(self.model_path,'gan_%s' % step))
