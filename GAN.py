@@ -110,11 +110,8 @@ class GAN(op_base):
         return init_op
     def gan_graph(self,g_opt,d_opt):
         
-        # tf.get_variable('noise',shape = [self.imle_deep,1000],initializer=tf.random_normal_initializer(mean=0.,stddev = 0.02))
-
-        self.z = self.normalizer(self.input_z)  ### 16, 1000      normalied
-        fake_img = self.decoder(self.z) 
-        fake_discriminate = self.discriminator(self.fake_img)
+        fake_img = self.decoder(self.input_z) 
+        fake_discriminate = self.discriminator(fake_img)
         real_discriminate = self.discriminator(self.input_image)
 
         #### tv loss 
@@ -168,7 +165,7 @@ class GAN(op_base):
         summary_writer = tf.summary.FileWriter(self.summary_dir, self.sess.graph)
         summary_op = tf.summary.merge(self.summaries)
 
-        self.train_data_generater = load_image(eval = True)
+        self.train_data_generater = load_image(eval = False)
 
         step = 0
         while True:
@@ -176,7 +173,7 @@ class GAN(op_base):
                 img_content, name = next(self.train_data_generater)
                 step += 1
             except StopIteration:
-                self.train_data_generater = load_image(eval = True)
+                self.train_data_generater = load_image(eval = False)
             
             ### with batch_size == 1
             _img_content = np.expand_dims(img_content,axis = 0)

@@ -42,7 +42,7 @@ parser.add_argument("-l", "--lr", type=float, default=1e-4)
 
 
 parser.add_argument("-ac", "--action", type=str, default='train')
-parser.add_argument("-m", "--model", type=str, default='GLANN')
+parser.add_argument("-m", "--model", type=str, default='GAN')
 
 
 
