@@ -2,6 +2,7 @@ import tensorflow as tf
 from GLANN import GLANN
 from IMLE import IMLE
 from GLO import GLO
+from GAN import GAN
 import argparse
 import os
 import sys
@@ -65,6 +66,8 @@ if __name__ == '__main__':
             model = GLANN(args,sess)
         elif(args.model == 'GLO'):
             model = GLO(args,sess)
+        elif(args.model == 'GAN'):
+            model = GAN(args,sess)
         if(args.action == 'train'):
             model.train()
         elif(args.action == 'test'):
