@@ -58,7 +58,7 @@ class GAN(op_base):
 
             return x
 
-    def discriminator(self,x,name = 'discriminator_img',is_training = is_training): ## 64,64,3
+    def discriminator(self,x,name = 'discriminator_img',is_training = True): ## 64,64,3
         with tf.variable_scope(name,reuse = tf.AUTO_REUSE):
             x = ly.conv2d(x,64,strides=2,use_bias=True,name = 'd_conv_0') ## 32,32,64
             x = ly.batch_normal(x,name = 'd_bn_0',is_training = is_training)
