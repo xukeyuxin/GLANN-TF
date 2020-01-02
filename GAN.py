@@ -130,7 +130,7 @@ class GAN(op_base):
 
         dis_grad = g_opt.compute_gradients(discri_loss,var_list = self.get_vars('discriminator_img') )
         dis_op = g_opt.apply_gradients(dis_grad)
-        return dis_op, gen_op
+        return tf.group(dis_op, gen_op)
 
     def make_img(self,img,name):
         if(len(img.shape) == 4):
@@ -155,7 +155,7 @@ class GAN(op_base):
 
         gen_optimizer = tf.train.AdamOptimizer(self.lr)
         dis_optimizer = tf.train.AdamOptimizer(self.lr)
-        dis_opt, gen_opt = self.gan_graph(gen_optimizer,dis_optimizer)
+        train_op = self.gan_graph(gen_optimizer,dis_optimizer)
 
         ## init
         self.sess.run(tf.global_variables_initializer())
@@ -179,10 +179,7 @@ class GAN(op_base):
             _img_content = np.expand_dims(img_content,axis = 0)
             _feed_dict = {self.input_image:_img_content}
 
-            _d_op,_summary_str = self.sess.run([dis_opt,summary_op], feed_dict = _feed_dict)
-            summary_writer.add_summary(_summary_str,step)
-
-            _g_op,_summary_str = self.sess.run([gen_opt,summary_op], feed_dict = _feed_dict)
+            _train_op,_summary_str = self.sess.run([train_op,summary_op], feed_dict = _feed_dict)
             summary_writer.add_summary(_summary_str,step)
 
             self.saver = tf.train.Saver()
