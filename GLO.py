@@ -18,7 +18,7 @@ class GLO(op_base):
         self.vgg = VGG19()
         self.model_path = os.path.join('glo_result','glo_model')
         self.code_path = os.path.join('glo_result','glo_encoder_code')
-        self.eval_path = os.path.join('glo_result','eval_glann')
+        self.eval_path = os.path.join('glo_result','glo_eval')
         
         # self.train_data_generater = load_image()
 
