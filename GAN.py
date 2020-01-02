@@ -149,7 +149,7 @@ class GAN(op_base):
 
     def restore_gen(self,index):
         if( os.path.exists(self.model_path) and os.listdir(self.model_path)):
-            self.saver.restore(self.sess,os.path.join(self.model_path,'generator_%s' % index))
+            self.saver.restore(self.sess,os.path.join(self.model_path,'gan_%s' % index))
     def train(self,is_training = True):
         self.input_image = tf.placeholder(tf.float32, shape = [self.batch_size,self.image_height,self.image_weight,self.image_channels] )
         self.input_z = tf.get_variable('noise',shape = [self.batch_size,1000],initializer = tf.random_normal_initializer(stddev = 0.02))
@@ -196,7 +196,7 @@ class GAN(op_base):
                     self.saver.save(self.sess,os.path.join(self.model_path,'gan_%s' % step))
                     print('sucess save gan')
             else:
-                self.restore_gen(index = 'gan_16500')
+                self.restore_gen(index = '16500')
                 _img = self.sess.run(self.fake_img,feed_dict = _feed_dict)
                 self.make_img(_img,name)
 
