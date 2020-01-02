@@ -58,22 +58,22 @@ class GAN(op_base):
 
             return x
 
-    def discriminator(self,x,name = 'discriminator_img'): ## 64,64,3
+    def discriminator(self,x,name = 'discriminator_img',is_training = is_training): ## 64,64,3
         with tf.variable_scope(name,reuse = tf.AUTO_REUSE):
             x = ly.conv2d(x,64,strides=2,use_bias=True,name = 'd_conv_0') ## 32,32,64
-            x = ly.batch_normal(x,name = 'd_bn_0')
+            x = ly.batch_normal(x,name = 'd_bn_0',is_training = is_training)
             x = ly.relu(x,0.2)
 
             x = ly.conv2d(x,128,strides=2,use_bias=True,name = 'd_conv_1') ## 16,16,128
-            x = ly.batch_normal(x,name = 'd_bn_1')
+            x = ly.batch_normal(x,name = 'd_bn_1',is_training = is_training)
             x = ly.relu(x,0.2)
 
             x = ly.conv2d(x,256,strides=2,use_bias=True,name = 'd_conv_2') ## 8,8,256
-            x = ly.batch_normal(x,name = 'd_bn_2')
+            x = ly.batch_normal(x,name = 'd_bn_2',is_training = is_training)
             x = ly.relu(x,0.2)
 
             x = ly.conv2d(x,512,strides=2,use_bias=True,name = 'd_conv_3') ## 4,4,512
-            x = ly.batch_normal(x,name = 'd_bn_3')
+            x = ly.batch_normal(x,name = 'd_bn_3',is_training = is_training)
             x = ly.relu(x,0.2)
 
             x = ly.fc(x,1,name = 'fc_0')
@@ -108,11 +108,12 @@ class GAN(op_base):
     def init_z(self,init_code):
         init_op = tf.assign(self.input_z,init_code)
         return init_op
-    def gan_graph(self,g_opt,d_opt):
+
+    def gan_graph(self,g_opt,d_opt,is_training = True):
         
-        fake_img = self.decoder(self.input_z) 
-        fake_discriminate = self.discriminator(fake_img)
-        real_discriminate = self.discriminator(self.input_image)
+        fake_img = self.decoder(self.input_z, is_training = is_training) 
+        fake_discriminate = self.discriminator(fake_img, is_training = is_training)
+        real_discriminate = self.discriminator(self.input_image, is_training = is_training)
 
         #### tv loss 
         _tv_loss = 0.0005 * tv_loss(fake_img)
@@ -124,6 +125,7 @@ class GAN(op_base):
 
         self.summaries.append(tf.summary.scalar('generate_loss',generate_loss)) 
         self.summaries.append(tf.summary.scalar('discri_loss',discri_loss)) 
+        self.fake_img = fake_img
 
         gen_grad = g_opt.compute_gradients(generate_loss,var_list = self.get_vars('generate_img') )
         gen_op = g_opt.apply_gradients(gen_grad)
@@ -148,25 +150,25 @@ class GAN(op_base):
     def restore_gen(self):
         if( os.path.exists(self.model_path) and os.listdir(self.model_path)):
             self.gen_saver.restore(self.sess,os.path.join(self.model_path,'generator'))
-    def train(self):
+    def train(self,is_training = True):
         self.input_image = tf.placeholder(tf.float32, shape = [self.batch_size,self.image_height,self.image_weight,self.image_channels] )
-        # self.input_z = tf.placeholder(tf.float32, shape = [self.imle_deep,1000] )
         self.input_z = tf.get_variable('noise',shape = [self.batch_size,1000],initializer = tf.random_normal_initializer(stddev = 0.02))
 
         gen_optimizer = tf.train.AdamOptimizer(self.lr)
         dis_optimizer = tf.train.AdamOptimizer(self.lr)
-        dis_op, gen_op = self.gan_graph(gen_optimizer,dis_optimizer)
+        dis_op, gen_op = self.gan_graph(gen_optimizer,dis_optimizer,is_training = is_training)
 
         ## init
         self.sess.run(tf.global_variables_initializer())
-        self.restore_gen()
+        
         
         ## summary init
         summary_writer = tf.summary.FileWriter(self.summary_dir, self.sess.graph)
         summary_op = tf.summary.merge(self.summaries)
 
-        self.train_data_generater = load_image(eval = False)
+        self.train_data_generater = load_image(eval = not is_training)
         self.saver = tf.train.Saver()
+
         step = 0
         while True:
             try:
@@ -179,19 +181,20 @@ class GAN(op_base):
             _img_content = np.expand_dims(img_content,axis = 0)
             _feed_dict = {self.input_image:_img_content}
 
-            _dis_op,_summary_str = self.sess.run([dis_op,summary_op], feed_dict = _feed_dict)
-            summary_writer.add_summary(_summary_str,step)
+            if(is_training):
+                _dis_op,_summary_str = self.sess.run([dis_op,summary_op], feed_dict = _feed_dict)
+                summary_writer.add_summary(_summary_str,step)
 
-            _gen_op,_summary_str = self.sess.run([gen_op,summary_op], feed_dict = _feed_dict)
-            summary_writer.add_summary(_summary_str,step)
-            
-            if(step % 500 == 0):
-                self.saver.save(self.sess,os.path.join(self.model_path,'gan_%s' % step))
-                print('sucess save gan')
-
-
-            
-
+                _gen_op,_summary_str = self.sess.run([gen_op,summary_op], feed_dict = _feed_dict)
+                summary_writer.add_summary(_summary_str,step)
+                
+                if(step % 500 == 0):
+                    self.saver.save(self.sess,os.path.join(self.model_path,'gan_%s' % step))
+                    print('sucess save gan')
+            else:
+                self.restore_gen()
+                _img = self.sess.run(self.fake_img,feed_dict = _feed_dict)
+                self.make_img(_img,name)
 
 
 

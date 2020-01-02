@@ -70,5 +70,5 @@ if __name__ == '__main__':
             model = GAN(args,sess)
         if(args.action == 'train'):
             model.train()
-        elif(args.action == 'test'):
-            model.eval()
+        elif(args.action == 'eval'):
+            model.train(is_training=False)
