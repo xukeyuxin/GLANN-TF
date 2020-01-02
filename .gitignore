@@ -1,7 +1,1 @@
-/data/random_faces
-/data/vgg19.npy
-/data/random_faces_1000
-/logs/*
-/model/*
-/GLANN_generate_model/
-/eval/*
+data

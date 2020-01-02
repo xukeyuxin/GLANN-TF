@@ -1,6 +1,7 @@
 import tensorflow as tf
 from GLANN import GLANN
 from IMLE import IMLE
+from GLO import GLO
 import argparse
 import os
 import sys
@@ -40,7 +41,7 @@ parser.add_argument("-l", "--lr", type=float, default=1e-4)
 
 
 parser.add_argument("-ac", "--action", type=str, default='train')
-parser.add_argument("-m", "--model", type=str, default='IMLE')
+parser.add_argument("-m", "--model", type=str, default='GLO')
 
 
 
@@ -63,7 +64,7 @@ if __name__ == '__main__':
         elif(args.model == 'GLANN'):
             model = GLANN(args,sess)
         elif(args.model == 'GLO'):
-            pass
+            model = GLO(args,sess)
         if(args.action == 'train'):
             model.train()
         elif(args.action == 'test'):
