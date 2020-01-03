@@ -32,7 +32,7 @@ def update_embedding_mold(cell_embed):
 
 def load_image(eval = True):
     if(eval):
-        image_dir_name = os.path.join('data','random_face_30')
+        image_dir_name = os.path.join('data','random_face_20')
     else:
         image_dir_name = os.path.join('data','random_faces')
     image_list = os.listdir(image_dir_name)
@@ -48,16 +48,6 @@ def load_image(eval = True):
         # image_name.append(name)
 
         yield rgb_float(_content), name
-
-def load_one_batch_image(self,index_batch):
-    image_dir_name = os.path.join('data','random_faces_1000')
-    image_content = []
-    for index in index_batch:
-        cell_content = cv2.imread(os.path.join(image_dir_name,str(index) + '.jpg')).astype(np.float32)
-        cell_content = cv2.resize(cell_content,(self.image_height,self.image_weight))
-        image_content.append(cell_content)
-
-    return rgb_float(np.array(image_content))
 
 
 def make_image(input,name_list):

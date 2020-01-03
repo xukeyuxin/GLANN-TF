@@ -68,7 +68,6 @@ if __name__ == '__main__':
             model = GLO(args,sess)
         elif(args.model == 'GAN'):
             model = GAN(args,sess)
+            
         if(args.action == 'train'):
             model.train()
-        elif(args.action == 'eval'):
-            model.train(is_training=False)
