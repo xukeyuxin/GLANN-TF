@@ -7,7 +7,7 @@
 GLANN(Generative Latent Nearest Neighbors) combines the strengths of both IMLE and GLO
 
 <div align="center">
-	<img src="res_img/graph.png" width="80%" height="10%"/>
+	<img src="https://github.com/xukeyuxin/GLANN-TF/raw/master/res_img/graph.png" width="80%" height="10%"/>
 </div>
 
 - 1. Adopt the ideas similar to GLO, but L1 loss was replaced by[perceptual loss](https://arxiv.org/abs/1603.08155)
@@ -17,22 +17,22 @@ GLANN(Generative Latent Nearest Neighbors) combines the strengths of both IMLE a
 ## Result
 ### origin
 <div align="center">
-	<img src="res_img/origin.jpg" width="50%" height="10%"/>
+	<img src="https://github.com/xukeyuxin/GLANN-TF/raw/master/res_img/origin.jpg" width="50%" height="10%"/>
 </div>
 
 ### GLO
 <div align="center">
-	<img src="res_img/glo_eval.jpg" width="50%" height="10%"/>
+	<img src="https://github.com/xukeyuxin/GLANN-TF/raw/master/res_img/glo_eval.jpg" width="50%" height="10%"/>
 </div>
 
 ### IMLE
 <div align="center">
-	<img src="res_img/imle_eval.jpg" width="50%" height="10%"/>
+	<img src="https://github.com/xukeyuxin/GLANN-TF/raw/master/res_img/imle_eval.jpg" width="50%" height="10%"/>
 </div>
 
 ### GLANN
 <div align="center">
-	<img src="res_img/glann_eval.jpg" width="50%" height="10%"/>
+	<img src="./res_img/glann_eval.jpg" width="50%" height="10%"/>
 </div>
 
 ## Run
