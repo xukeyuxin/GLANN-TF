@@ -56,8 +56,8 @@ python main.py -m GLANN
 - 1. The generate Latent code in glann_result/glann_encoder_code
 - 2. The generate image was in glann_result/glann_eval
 
-## DOWNLOAD
-[Data]()
+## DOWNLOAD(baidu)
+[Data](https://pan.baidu.com/s/1QEDcbWO0yZ3zIxBuTo4ZxQ)
 
 [IMLE](https://pan.baidu.com/s/1h4Nwf-m4aKsYiJ44Rmv2Fw)
 
