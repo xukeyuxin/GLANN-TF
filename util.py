@@ -49,11 +49,11 @@ def load_image(eval = True):
 
         yield rgb_float(_content), name
 
-def normalizer(self,input,name = 'generator_z'):
+def normalizer(input,name = 'generator_z'):
     def _normal(item):
-        axis = range(len(input.get_shape().as_list()))
-        mean,variance = tf.nn.moments(input , axis = axis, keep_dims = True)
-        return (item - mean) * (variance ** -0.5)
+        mean,variance = tf.nn.moments(input , axes = [0], keep_dims = True)
+        normal_value = (item - mean) * (variance ** -0.5)
+        return tf.squeeze(normal_value)
     with tf.name_scope(name):
         x = tf.map_fn(_normal,input)
         return x
