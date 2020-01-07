@@ -110,13 +110,6 @@ class GLANN(op_base):
             local_var_loss = tf.reduce_mean(tf.abs(pr_var - gt_var), axis = [1,2,3])
         return local_mean_loss + local_var_loss
 
-    def normalizer(self,input,name = 'generator_z'):
-        def _normal(item):
-            _normal_weight = tf.reduce_sum(tf.square(input))
-            return item / _normal_weight
-        with tf.name_scope(name):
-            x = tf.map_fn(_normal,input)
-            return x
 
     def xavier_initializer(self,shape, gain = 1.):
         if(len(shape) == 4):
@@ -137,7 +130,7 @@ class GLANN(op_base):
         
         # tf.get_variable('noise',shape = [self.imle_deep,1000],initializer=tf.random_normal_initializer(mean=0.,stddev = 0.02))
 
-        self.z = self.normalizer(self.input_z)  ### 16, 1000      normalied
+        self.z = normalizer(self.input_z)  ### 16, 1000      normalied
         fake_img = self.decoder(self.z) 
         mix_input_image = tf.concat( [ self.input_image for i in range(self.imle_deep)], axis = 0 )
 

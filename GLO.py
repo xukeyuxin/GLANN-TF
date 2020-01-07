@@ -127,14 +127,14 @@ class GLO(op_base):
         #### tv loss 
         _tv_loss = 0.0005 * tv_loss(fake_img)
 
-        imle_gen_loss = moment_loss + _tv_loss
+        glo_gen_loss = moment_loss + _tv_loss
 
-        self.summaries.append(tf.summary.scalar('g_min_loss',imle_gen_loss)) 
+        self.summaries.append(tf.summary.scalar('g_min_loss',glo_gen_loss)) 
         self.gen_saver = tf.train.Saver(var_list=self.get_vars('generate_img'))
         self.fake_img = fake_img
         self.choose_noise = self.z
 
-        gen_grad = g_opt.compute_gradients(imle_gen_loss,var_list = self.get_vars('generate_img') )
+        gen_grad = g_opt.compute_gradients(glo_gen_loss,var_list = self.get_vars('generate_img') )
         ### clip gridents
         gen_op = g_opt.apply_gradients(gen_grad)
         return update_op, gen_op

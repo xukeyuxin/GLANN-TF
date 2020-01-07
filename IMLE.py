@@ -63,13 +63,6 @@ class IMLE(op_base):
         label, name = self.make_data_queue(eval = True)
         self.start(label, name,is_training = False)
 
-    def normalizer(self,input,name = 'generator_z'):
-        def _normal(item):
-            _normal_weight = tf.reduce_sum(tf.square(input))
-            return item / _normal_weight
-        with tf.name_scope(name):
-            x = tf.map_fn(_normal,input)
-            return x
 
     def xavier_initializer(self,shape, gain = 1.):
         if(len(shape) == 4):

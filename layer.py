@@ -102,18 +102,19 @@ def sigmoid_cross_entropy(input,label,safe_log = 1e-12,need_sigmoid = False):
 #     return output_array
 #
 
-def instance_normal(input,name):
-    input_shape = get_shape(input)
-    with tf.variable_scope(name):
-        _scale = tf.get_variable('scale',input_shape[-1],initializer = tf.random_normal_initializer(mean = 0.,stddev = 0.02, dtype = tf.float32))
-        _offset = tf.get_variable('offset',input_shape[-1],initializer = tf.constant_initializer(0.,dtype = tf.float32))
+# def instance_normal(input,name):
+#     input_shape = get_shape(input)
+#     with tf.variable_scope(name):
+#         _scale = tf.get_variable('scale',input_shape[-1],initializer = tf.random_normal_initializer(mean = 0.,stddev = 0.02, dtype = tf.float32))
+#         _offset = tf.get_variable('offset',input_shape[-1],initializer = tf.constant_initializer(0.,dtype = tf.float32))
 
-        mean,variance = tf.nn.moments(input,axes = [0,1,2], keep_dims = True)
-        epsilon = 1e-5
-        inv = ( variance + epsilon ) ** - 0.5
-        normalized = (input - mean ) * inv
+#         mean,variance = tf.nn.moments(input,axes = [1,2], keep_dims = True)
+#         epsilon = 1e-5
+#         inv = ( variance + epsilon ) ** - 0.5
+#         normalized = (input - mean ) * inv
 
-        return _scale * normalized + _offset
+#         return _scale * normalized + _offset
+
 
 def _batch_normal(input,name = None,is_training=True, moving_decay=0.99):
     input_shape = get_shape(input)
