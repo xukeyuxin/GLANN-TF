@@ -47,7 +47,7 @@ parser.add_argument("-m", "--model", type=str, default='GLANN')
 
 
 args = parser.parse_args()
-os.environ["CUDA_VISIBLE_DEVICES"] =  '0'
+os.environ["CUDA_VISIBLE_DEVICES"] =  '1'
 
 
 dir_names = ['eval','logs','model','data']
