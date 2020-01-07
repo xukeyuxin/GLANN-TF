@@ -19,6 +19,11 @@ class GLANN(op_base):
         self.model_path = os.path.join('glann_result','glann_model')
         self.code_path = os.path.join('glann_result','glann_encoder_code')
         self.eval_path = os.path.join('glann_result','glann_eval')
+        if(not os.path.exists('glann_result')):
+            os.mkdir('glann_result')
+            os.mkdir('glann_result/glann_model')
+            os.mkdir('glann_result/glann_encoder_code')
+            os.mkdir('glann_result/glann_eval')
         
         
         # self.train_data_generater = load_image()

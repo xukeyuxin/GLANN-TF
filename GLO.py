@@ -19,6 +19,11 @@ class GLO(op_base):
         self.model_path = os.path.join('glo_result','glo_model')
         self.code_path = os.path.join('glo_result','glo_encoder_code')
         self.eval_path = os.path.join('glo_result','glo_eval')
+        if(not os.path.exists('glo_result')):
+            os.mkdir('glo_result')
+            os.mkdir('glo_result/glo_model')
+            os.mkdir('glo_result/glo_encoder_code')
+            os.mkdir('glo_result/glo_eval')
         
         # self.train_data_generater = load_image()
 

@@ -18,6 +18,10 @@ class IMLE(op_base):
         self.vgg = VGG19()
         self.model_path = os.path.join('imle_result','imle_model')
         self.eval_path = os.path.join('imle_result','imle_eval')
+        if(not os.path.exists('imle_result')):
+            os.mkdir('imle_result')
+            os.mkdir('imle_result/imle_model')
+            os.mkdir('imle_result/imle_eval')
         
         
         # self.train_data_generater = load_image()
